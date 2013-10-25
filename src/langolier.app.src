@@ -1,0 +1,11 @@
+% -*- mode: Erlang;-*-
+{application, langolier,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {mod, {langolier_app, []}},
+  {env, [
+	]}
+ ]}.
