@@ -23,5 +23,5 @@ init([]) ->
 		  Restart, Shutdown, worker, 
 		  [somw_worker]},
 
-    {ok, {SupFlags, []}}.
+    {ok, {SupFlags, [SomeWorker]}}.
 

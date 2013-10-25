@@ -3,7 +3,6 @@
 
 -behaviour(application).
 -export([start/0, start/2, stop/1]).
--include("logger.hrl").
 
 start() ->
     application:start(langolier),

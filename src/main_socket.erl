@@ -4,7 +4,7 @@
 -record(state, {
   server,
   clients = [],
-  bytes=[binary()]}).
+  bytes=[]}).
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
@@ -16,17 +16,20 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3, receive_from_client/1]).
 
+
+
+
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
--spec(start_link(socket_info) -> pid()).
+-spec(start_link() -> pid()).
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
-init(Args) ->
+init(_Args) ->
   {ok, SocketServer} = gen_tcp:listen(8001, [binary, {packet, 0},{active, false}]),
   gen_server:call(?SERVER, {start_socket_server, SocketServer}),
   accept(SocketServer),
@@ -42,7 +45,7 @@ receive_from_client(SocketClient) ->
   case gen_tcp:recv(SocketClient, 0) of
     {ok, Bytes} ->
       gen_server:cast(?SERVER, {receive_from_client, SocketClient, Bytes}),
-      do_recv(SocketClient);
+      receive_from_client(SocketClient);
     {error, closed} ->
       {error, closed}
   end.
