@@ -10,7 +10,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/0]).
+-export([start_link/0, send_to_last_accepted/1]).
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -24,6 +24,9 @@
 -spec(start_link() -> pid()).
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+send_to_last_accepted(Bytes) ->
+	gen_server:call(?SERVER, {send_to_last_accepted, Bytes}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -64,8 +67,8 @@ handle_cast({receive_from_client, _SocketClient, NewBytes}, #state{message_handl
 handle_cast({start_socket_server, SocketServer}, State) ->
   logger:info("Start server: ~w~n", [SocketServer]),
   NewState = State#state{
-    server=SocketServer
-  },
+	  server=SocketServer
+	},
   {noreply, NewState};
 
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
