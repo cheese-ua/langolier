@@ -1,10 +1,10 @@
 -module(main_socket).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
+-include("../include/types.hrl").
 -record(state, {
-  server,
-  clients = [],
-  bytes=[]}).
+  server :: #socket_info{},
+  message_handler}).
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
