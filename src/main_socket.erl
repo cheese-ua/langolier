@@ -1,10 +1,11 @@
 -module(main_socket).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
+-include("../include/types.hrl").
 -record(state, {
-  server,
-  clients = [],
-  bytes=[]}).
+  server :: #socket_info{},
+  clients=[],
+  message_handler}).
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
@@ -55,12 +56,10 @@ handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 %% ------------------------------------------------------------------
-handle_cast({receive_from_client, SocketClient, NewBytes}, #state{bytes=Bytes} = State) ->
+handle_cast({receive_from_client, _SocketClient, NewBytes}, #state{message_handler = Handler} = State) ->
   logger:info("Receive message: ~w~n", [NewBytes]),
-  NewState = State#state{
-    bytes=[{SocketClient, NewBytes} | Bytes]
-  },
-  {noreply, NewState};
+	Handler(NewBytes),
+  {noreply, State};
 
 handle_cast({start_socket_server, SocketServer}, State) ->
   logger:info("Start server: ~w~n", [SocketServer]),
