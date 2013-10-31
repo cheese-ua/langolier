@@ -1,5 +1,4 @@
 -module(langolier_app).
--author('Yura Zhloba <yzh44yzh@gmail.com>').
 
 -behaviour(application).
 -export([start/0, start/2, stop/1]).
