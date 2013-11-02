@@ -6,15 +6,15 @@
 -include("../include/types.hrl").
 
 %% API
--export([start_link/0]).
+-export([start_link/2]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	code_change/3]).
 
 %% API
-start_link() ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(MainSocket, ClientsSockets) ->
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [MainSocket, ClientsSockets], []).
 
 %% gen_server callbacks
 -record(state, {
@@ -22,7 +22,7 @@ start_link() ->
 	clients_sockets=[] :: [#socket_info{}]
 }).
 
-init(_Args) ->
+init([_MainSocket, _ClientsSockets]) ->
 
 	{ok, #state{}}.
 

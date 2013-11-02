@@ -2,13 +2,13 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, init/1]).
+-export([start_link/2, init/1]).
 
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(MainSocket, ClientsSockets) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, [MainSocket, ClientsSockets]).
 
 
-init([]) ->
+init([MainSocket, ClientsSockets]) ->
     RestartStrategy = one_for_one, % one_for_one | one_for_all | rest_for_one
     MaxRestarts = 0,
     MaxSecondsBetweenRestarts = 10,
@@ -18,7 +18,7 @@ init([]) ->
     Shutdown = 2000,     % brutal_kill | int() >= 0 | infinity
 
     SomeWorker = {top_handler,
-		  {top_handler, start_link, []},
+		  {top_handler, start_link, [MainSocket, ClientsSockets]},
 		  Restart, Shutdown, worker, 
 		  [top_handler]},
 

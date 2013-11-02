@@ -9,8 +9,9 @@ start() ->
 
 
 start(_StartType, _StartArgs) ->
-    langolier_sup:start_link().
+		MainSocket = application:get_env(langolier, main_socket),
+		ClientsSockets = application:get_env(langolier, clients_sockets),
+    langolier_sup:start_link(MainSocket, ClientsSockets).
 
-    
 stop(_State) ->
     ok.
