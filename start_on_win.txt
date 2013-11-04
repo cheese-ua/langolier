@@ -1,0 +1,7 @@
+cd("E:/Development/Erlang/out/production/langolier").
+application:start(langolier_app).
+
+
+
+
+appmon:start().
