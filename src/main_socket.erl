@@ -10,20 +10,21 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/0, send_to_last_accepted/1]).
+-export([start_link/1, send_to_last_accepted/1]).
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, receive_from_client/1]).
+         terminate/2, code_change/3, receive_from_client/1, accept/1]).
 
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
--spec(start_link() -> pid()).
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+-spec(start_link(#socket_info{}) -> pid()).
+start_link(MainSocket) ->
+		logger:info("start_link: ~w~n", [?MODULE]),
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [MainSocket], []).
 
 send_to_last_accepted(Bytes) ->
 	gen_server:call(?SERVER, {send_to_last_accepted, Bytes}).
@@ -31,18 +32,31 @@ send_to_last_accepted(Bytes) ->
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
-init(_Args) ->
-  {ok, SocketServer} = gen_tcp:listen(8001, [binary, {packet, 0},{active, false}]),
-  gen_server:call(?SERVER, {start_socket_server, SocketServer}),
-  accept(SocketServer),
-   {ok}.
+init([#socket_info{port = Port} = SocketInfo]) ->
+	logger:info("init: ~w~n", [?MODULE]),
+	logger:info("Server: ~p~n", [SocketInfo]),
+  {ok, SocketServer} = gen_tcp:listen(Port, [binary, {packet, 0},{active, false}]),
+	logger:info("Started server on port: ~p~n", [Port]),
+	logger:info("Started server: ~p~n", [SocketServer]),
+  Pid= spawn(?SERVER, accept, [SocketServer]),
+	logger:info("Pid: ~p~n", [Pid]),
+   {ok, #state{
+	  	server = SocketServer
+	 }}.
 
 %% ------------------------------------------------------------------
 accept(SocketServer) ->
-  {ok, SocketClient} = gen_tcp:accept(SocketServer),
-  gen_server:cast(?SERVER, {accept_socket_client, SocketClient}),
-  spawn_link(?SERVER, receive_from_client, [SocketClient]),
-  accept(SocketServer).
+	logger:info("Begin accept: ~p~n", [SocketServer]),
+  Res = gen_tcp:accept(SocketServer),
+	case Res of
+		{ok, SocketClient} ->
+  			gen_server:cast(?SERVER, {accept_socket_client, SocketClient}),
+  			spawn(?SERVER, receive_from_client, [SocketClient]),
+				accept(SocketServer);
+		{error, Reason} ->
+			logger:info("Error: ~w~n", [Reason]),
+			{error, Reason}
+		end.
 
 %% ------------------------------------------------------------------
 receive_from_client(SocketClient) ->
@@ -64,13 +78,6 @@ handle_cast({receive_from_client, _SocketClient, NewBytes}, #state{message_handl
 	Handler(NewBytes),
   {noreply, State};
 
-handle_cast({start_socket_server, SocketServer}, State) ->
-  logger:info("Start server: ~w~n", [SocketServer]),
-  NewState = State#state{
-	  server=SocketServer
-	},
-  {noreply, NewState};
-
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
   logger:info("Accept client: ~w~n", [SocketClient]),
   NewState = State#state{
@@ -79,16 +86,20 @@ handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = Stat
   {noreply, NewState};
 
 handle_cast(_Msg, State) ->
+		logger:info("handle_cast: unknown"),
     {noreply, State}.
 
 %% ------------------------------------------------------------------
 handle_info(_Info, State) ->
+		logger:info("handle_info: unknown"),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
+		logger:info("terminate: unknown"),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
+		logger:info("code_change: unknown"),
     {ok, State}.
 
 %% ------------------------------------------------------------------

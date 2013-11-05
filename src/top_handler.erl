@@ -2,41 +2,14 @@
 -module(top_handler).
 -author("cheese").
 
--behaviour(gen_server).
 -include("../include/types.hrl").
 
 %% API
--export([start_link/2]).
+-export([start/2]).
 
-%% gen_server
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-	code_change/3]).
+start(MainSocket, _ClientsSockets) ->
+	logger:info("init: ~w~n", [?MODULE]),
+	%%socket_utilites:parseSocketList(ClientsSockets),
+	PidMain = main_socket_sup:start_link(socket_utilites:parseSocket(MainSocket)),
+	{ok, {PidMain}}.
 
-%% API
-start_link(MainSocket, ClientsSockets) ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [MainSocket, ClientsSockets], []).
-
-%% gen_server callbacks
--record(state, {
-	main_socket :: #socket_info{},
-	clients_sockets=[] :: [#socket_info{}]
-}).
-
-init([_MainSocket, _ClientsSockets]) ->
-
-	{ok, #state{}}.
-
-handle_call(_Request, _From, State) ->
-	{noreply, State}.
-
-handle_cast(_Request, State) ->
-	{noreply, State}.
-
-handle_info(_Info, State) ->
-	{noreply, State}.
-
-terminate(_Reason, _State) ->
-	ok.
-
-code_change(_OldVsn, State, _Extra) ->
-	{ok, State}.

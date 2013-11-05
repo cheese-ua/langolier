@@ -4,14 +4,13 @@
 -export([start/0, start/2, stop/1]).
 
 start() ->
-	  logger:info("start application#1"),
-    application:start(langolier),
+    application:start(langolier_app),
     ok.
 
 start(_StartType, _StartArgs) ->
-		logger:info("start application#2"),
-		MainSocket = application:get_env(langolier, main_socket),
-		ClientsSockets = application:get_env(langolier, clients_sockets),
+		logger:info("Start application: ~w~n", [?MODULE]),
+		{ok, MainSocket} = application:get_env(langolier_app, main_socket),
+		{ok, ClientsSockets} = application:get_env(langolier_app, clients_sockets),
     langolier_sup:start_link(MainSocket, ClientsSockets).
 
 stop(_State) ->
