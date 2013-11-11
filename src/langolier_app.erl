@@ -3,6 +3,7 @@
 -behaviour(application).
 -export([start/0, start/2, stop/1]).
 
+%%consumer_socket, consumer_socket_sup, main_socket_sup, socket_utilites, top_handler
 start() ->
     application:start(langolier_app),
     ok.

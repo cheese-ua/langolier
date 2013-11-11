@@ -1,7 +1,7 @@
 %% Copyright
 -module(socket_utilites).
 -author("cheese").
--include("../include/types.hrl").
+-include("types.hrl").
 
 %% API
 -export([parseSocketList/1, parseSocket/1]).

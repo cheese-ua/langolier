@@ -1,7 +1,7 @@
 -module(main_socket).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
--include("../include/types.hrl").
+-include("types.hrl").
 -record(state, {
   server :: #socket_info{},
   clients=[],
