@@ -4,7 +4,7 @@
   {vsn, "1"},
   {registered, []},
   {applications, [kernel, stdlib]},
-  {mod, {langolier_app, []}},
+  {mod, {langolier_app, [top_handler]}},
   {env, [
 		{main_socket, [{type, server}, {ip, <<"10.55.5.52">>}, {port, 8001}]},
 		{clients_sockets, [

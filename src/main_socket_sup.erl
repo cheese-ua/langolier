@@ -16,13 +16,14 @@ start_link(MainSocket) ->
 
 %% supervisor callbacks
 init([MainSocket]) ->
+
 	RestartStrategy = one_for_one,
-	MaxRestarts = 0,
-	MaxSecondsBetweenRestarts = 10,
+	MaxRestarts = 1000,
+	MaxSecondsBetweenRestarts = 5,
 	SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
 
 	Restart = permanent, % permanent | transient | temporary
-	Shutdown = 5,     % brutal_kill | int() >= 0 | infinity
+	Shutdown = brutal_kill,     % brutal_kill | int() >= 0 | infinity
 
 	SomeWorker = {main_socket,
 		{main_socket, start_link, [MainSocket]},

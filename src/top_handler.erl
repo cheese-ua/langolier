@@ -9,7 +9,6 @@
 
 start(MainSocket, _ClientsSockets) ->
 	logger:info("init: ~w~n", [?MODULE]),
-	%%socket_utilites:parseSocketList(ClientsSockets),
 	PidMain = main_socket_sup:start_link(socket_utilites:parseSocket(MainSocket)),
 	{ok, {PidMain}}.
 

@@ -4,4 +4,8 @@ application:start(langolier_app).
 
 
 
+
+cd("E:/Development/Erlang/out/production/langolier").
+main_socket:start_link(socket_utilites:parseSocket([{type, server}, {ip, <<"10.55.5.52">>}, {port, 8001}])).
+
 appmon:start().
