@@ -1,7 +1,7 @@
 -module(main_socket).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
--include("types.hrl").
+-include("../include/types.hrl").
 -record(state, {
   server :: #socket_info{},
   clients=[],
@@ -22,7 +22,6 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
--spec(start_link(#socket_info{}) -> pid()).
 start_link(MainSocket) ->
 		logger:info("start_link: ~w~n", [?MODULE]),
     gen_server:start_link({local, ?SERVER}, ?MODULE, [MainSocket], []).
@@ -41,13 +40,13 @@ init([#socket_info{port = Port} = SocketInfo]) ->
 	Pid = spawn_link(?SERVER, accept, [SocketServer]),
 	logger:info("Accept Pid: ~p~n", [Pid]),
    {ok, #state{
-	  	server = SocketServer
+	  	server = SocketInfo
 	 }}.
 
 %% ------------------------------------------------------------------
 %% Пока сокет жив  - ожидаем подключения
 %% ------------------------------------------------------------------
--spec(accept(#socket_info{}) -> {error, _}).
+-spec(accept(port()) -> {stopped, atom()}).
 accept(SocketServer) ->
 	logger:info("Begin accept: ~p~n", [SocketServer]),
   Res = gen_tcp:accept(SocketServer),
