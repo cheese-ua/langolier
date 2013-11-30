@@ -5,7 +5,8 @@
 -record(state, {
   server :: #socket_info{},
   clients=[],
-  message_handler}).
+  message_handler,
+	messages=[]}).
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
@@ -15,7 +16,7 @@
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, receive_from_client/1, accept/1]).
+         terminate/2, code_change/3, receive_from_client/1, accept/1, handle_message/2]).
 
 
 %% ------------------------------------------------------------------
@@ -36,26 +37,29 @@ init([#socket_info{port = Port} = SocketInfo]) ->
 	logger:info("init: ~w~n", [?MODULE]),
 	logger:info("Server: ~p~n", [SocketInfo]),
   {ok, SocketServer} = gen_tcp:listen(Port, [binary, {packet, 0},{active, false}]),
-	logger:info("Started server on port: ~p~n", [Port]),
-	logger:info("Started server: ~p~n", [SocketServer]),
-  Pid= spawn(?SERVER, accept, [SocketServer]),
-	logger:info("Pid: ~p~n", [Pid]),
+	logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer]),
+	Pid = spawn_link(?SERVER, accept, [SocketServer]),
+	logger:info("Accept Pid: ~p~n", [Pid]),
    {ok, #state{
 	  	server = SocketServer
 	 }}.
 
 %% ------------------------------------------------------------------
+%% Пока сокет жив  - ожидаем подключения
+%% ------------------------------------------------------------------
+-spec(accept(#socket_info{}) -> {error, _}).
 accept(SocketServer) ->
 	logger:info("Begin accept: ~p~n", [SocketServer]),
   Res = gen_tcp:accept(SocketServer),
 	case Res of
 		{ok, SocketClient} ->
+				logger:info("Accepted client: ~p~n", [SocketClient]),
   			gen_server:cast(?SERVER, {accept_socket_client, SocketClient}),
   			spawn(?SERVER, receive_from_client, [SocketClient]),
 				accept(SocketServer);
 		{error, Reason} ->
-			logger:info("Error: ~w~n", [Reason]),
-			{error, Reason}
+			logger:info("Error: ~w~n",[{Reason}]),
+			{stopped, Reason}
 		end.
 
 %% ------------------------------------------------------------------
@@ -65,6 +69,7 @@ receive_from_client(SocketClient) ->
       gen_server:cast(?SERVER, {receive_from_client, SocketClient, Bytes}),
       receive_from_client(SocketClient);
     {error, closed} ->
+			gen_server:cast(?SERVER, {closed_client, SocketClient}),
       {error, closed}
   end.
 
@@ -73,15 +78,23 @@ handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 %% ------------------------------------------------------------------
-handle_cast({receive_from_client, _SocketClient, NewBytes}, #state{message_handler = Handler} = State) ->
-  logger:info("Receive message: ~w~n", [NewBytes]),
-	Handler(NewBytes),
-  {noreply, State};
-
+handle_cast({closed_client, SocketClient}, #state{} = State) ->
+	logger:info("Client disconnected: ~w~n", [SocketClient]),
+	{noreply, State};
+handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler, messages = Messages} = State) ->
+  logger:info("Receive message from ~w: ~w~n", [SocketClient, NewBytes]),
+	case handle_message(Handler, NewBytes) of
+		{undefined, handler_is_absent} ->
+			NewState =State#state{messages = [{NewBytes}, Messages]},
+  		{noreply, NewState};
+		_ ->
+			{noreply, State}
+	end;
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
-  logger:info("Accept client: ~w~n", [SocketClient]),
+	NewClients=[SocketClient | Clients],
+  logger:info("Active clients [~w]: ~w~n", [length(NewClients), {NewClients}]),
   NewState = State#state{
-   clients=[SocketClient | Clients]
+   clients=NewClients
   },
   {noreply, NewState};
 
@@ -103,6 +116,10 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% ------------------------------------------------------------------
-%% Internal Function Definitions
+%% Если обработчик события есть - обрабатываем
 %% ------------------------------------------------------------------
-
+handle_message(Handler, Bytes) ->
+	case Handler of
+		undefined -> {undefined, handler_is_absent};
+		_ -> Handler(Bytes)
+	end.
