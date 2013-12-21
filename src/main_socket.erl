@@ -11,7 +11,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/1, send_to_last_accepted/1]).
+-export([start_link/1, send_to_last_accepted/1, test/0]).
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -29,19 +29,26 @@ start_link(MainSocket) ->
 send_to_last_accepted(Bytes) ->
 	gen_server:call(?SERVER, {send_to_last_accepted, Bytes}).
 
+test() ->
+  self() ! test.
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 init([#socket_info{port = Port} = SocketInfo]) ->
 	logger:info("init: ~w~n", [?MODULE]),
 	logger:info("Server: ~p~n", [SocketInfo]),
-  {ok, SocketServer} = gen_tcp:listen(Port, [binary, {packet, 0},{active, false}]),
-	logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer]),
-	Pid = spawn_link(?SERVER, accept, [SocketServer]),
-	logger:info("Accept Pid: ~p~n", [Pid]),
-   {ok, #state{
-	  	server = SocketInfo
-	 }}.
+  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}])  of
+    {ok, SocketServer} ->
+      logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer]),
+      Pid = spawn(?SERVER, accept, [SocketServer]),
+      logger:info("Accept Pid: ~p~n", [Pid]),
+      {ok, #state{
+        server = SocketInfo
+      }};
+    {error, Reason} ->
+      logger:info("Error starting listen: ~p~n", [Reason]),
+      error(Reason)
+  end.
 
 %% ------------------------------------------------------------------
 %% Пока сокет жив  - ожидаем подключения
@@ -50,6 +57,7 @@ init([#socket_info{port = Port} = SocketInfo]) ->
 accept(SocketServer) ->
 	logger:info("Begin accept: ~p~n", [SocketServer]),
   Res = gen_tcp:accept(SocketServer),
+  logger:info("Res: ~p~n", [Res]),
 	case Res of
 		{ok, SocketClient} ->
 				logger:info("Accepted client: ~p~n", [SocketClient]),
@@ -102,6 +110,9 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %% ------------------------------------------------------------------
+handle_info(test, State) ->
+  logger:info("State: ~p~n", [State]),
+  {noreply, State};
 handle_info(_Info, State) ->
 		logger:info("handle_info: unknown"),
     {noreply, State}.
