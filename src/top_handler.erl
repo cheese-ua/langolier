@@ -2,8 +2,6 @@
 -module(top_handler).
 -author("cheese").
 
--include("types.hrl").
-
 %% API
 -export([start/2]).
 
