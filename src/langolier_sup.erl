@@ -10,21 +10,15 @@ start_link(MainSocket, ClientsSockets) ->
 
 init([MainSocket, _ClientsSockets]) ->
 		logger:info("Start supervisor: ~w~n", [?MODULE]),
-		RestartStrategy = one_for_one,
-    MaxRestarts = 2,
-    MaxSecondsBetweenRestarts = 2000,
 
-    Restart = permanent,
-    Shutdown = 2000,
-
-    SomeWorker = {main_socket_sup,
+    SupervisorSocket = {main_socket_sup,
 		  {main_socket_sup, start_link, [MainSocket]},
-		  Restart, Shutdown, supervisor,
+      permanent, 2000, supervisor,
 		  []},
 
     {ok, {
-      {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
-      [SomeWorker]
+      {one_for_one, 2, 5},
+      [SupervisorSocket]
          }
     }.
 
