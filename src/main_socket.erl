@@ -16,7 +16,8 @@
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, receive_from_client/1, accept/1, handle_message/2]).
+         terminate/2, code_change/3, receive_from_client/1, accept/1, handle_message/2,
+          delete_client/3]).
 
 
 %% ------------------------------------------------------------------
@@ -30,7 +31,7 @@ send_to_last_accepted(Bytes) ->
 	gen_server:call(?SERVER, {send_to_last_accepted, Bytes}).
 
 test() ->
-  self() ! test.
+  gen_server:cast(?SERVER, test).
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
@@ -90,9 +91,11 @@ handle_cast({init, SocketInfo}, _State) ->
       logger:info("Error starting listen: ~p~n", [Reason]),
       error(Reason)
   end;
-handle_cast({closed_client, SocketClient}, #state{} = State) ->
+handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
 	logger:info("Client disconnected: ~w~n", [SocketClient]),
-	{noreply, State};
+  NewClients = delete_client(SocketClient, [], Clients),
+  logger:info("New Clients: ~w~n", [NewClients]),
+	{noreply, State#state{clients = NewClients}};
 handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler, messages = Messages} = State) ->
   logger:info("Receive message from ~w: ~w~n", [SocketClient, NewBytes]),
 	case handle_message(Handler, NewBytes) of
@@ -104,13 +107,17 @@ handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handle
 	end;
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
 	NewClients=[SocketClient | Clients],
-  logger:info("Active clients [~w]: ~w~n", [length(NewClients), {NewClients}]),
+  logger:info("Active clients [~w]: ~w~n", [length(NewClients), NewClients]),
   NewState = State#state{
    clients=NewClients
   },
   {noreply, NewState};
 
-handle_cast(Msg, State) ->
+handle_cast(test, #state{clients = [Client | _]} = State) ->
+  Res =gen_tcp:send(Client, "TEST"),
+  logger:info("Send to [~w]: ~w~n", [Client, Res]),
+  {noreply, State};
+ handle_cast(Msg, State) ->
 		logger:info("handle_cast [unknown]: ~w~n", [Msg]),
     {noreply, State}.
 
@@ -138,3 +145,11 @@ handle_message(Handler, Bytes) ->
 		undefined -> {undefined, handler_is_absent};
 		_ -> Handler(Bytes)
 	end.
+
+delete_client(_SocketClient, NewList, []) ->
+  NewList;
+delete_client(SocketClient, NewList, [SocketClient | Tail]) ->
+  delete_client(SocketClient, NewList, Tail);
+delete_client(SocketClient, NewList, [Head | Tail]) ->
+  delete_client(SocketClient, [Head | NewList], Tail).
+
