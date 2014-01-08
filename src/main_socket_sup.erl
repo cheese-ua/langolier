@@ -16,16 +16,16 @@ start_link(MainSocket) ->
 
 %% supervisor callbacks
 init([SocketParam]) ->
-
+  logger:info("Start supervisor: ~w~n", [?MODULE]),
 	RestartStrategy = one_for_one,
-	MaxRestarts = 10,
-	MaxSecondsBetweenRestarts = 5,
+	MaxRestarts = 2,
+	MaxSecondsBetweenRestarts = 5000,
 
 	RestartType = permanent, % permanent | transient | temporary
 	Shutdown = 2000,     % brutal_kill | int() >= 0 | infinity
 
 	Child = {main_socket,
-		{main_socket, start_link, [SocketParam]},
+		{main_socket, start_link, [socket_utilites:parseSocket(SocketParam)]},
 		RestartType, Shutdown, worker,
 		[]},
 

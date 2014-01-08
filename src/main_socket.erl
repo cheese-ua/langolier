@@ -34,21 +34,12 @@ test() ->
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
-init([#socket_info{port = Port} = SocketInfo]) ->
-	logger:info("init: ~w~n", [?MODULE]),
-	logger:info("Server: ~p~n", [SocketInfo]),
-  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}])  of
-    {ok, SocketServer} ->
-      logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer]),
-      Pid = spawn(?SERVER, accept, [SocketServer]),
-      logger:info("Accept Pid: ~p~n", [Pid]),
-      {ok, #state{
-        server = SocketInfo
-      }};
-    {error, Reason} ->
-      logger:info("Error starting listen: ~p~n", [Reason]),
-      error(Reason)
-  end.
+init([SocketInfo]) ->
+  gen_server:cast(?SERVER, {init, SocketInfo}),
+  {ok, #state{
+    server = SocketInfo
+  }}.
+
 
 %% ------------------------------------------------------------------
 %% Пока сокет жив  - ожидаем подключения
@@ -85,6 +76,20 @@ handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 %% ------------------------------------------------------------------
+handle_cast({init, SocketInfo}, _State) ->
+  logger:info("init: ~w~n", [?MODULE]),
+  logger:info("Server: ~p~n", [SocketInfo]),
+  #socket_info{port = Port} = SocketInfo,
+  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}])  of
+    {ok, SocketServer} ->
+      logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer]),
+      Pid = spawn(?SERVER, accept, [SocketServer]),
+      logger:info("Accept Pid: ~p~n", [Pid]),
+      {noreply, #state{server = SocketInfo }};
+    {error, Reason} ->
+      logger:info("Error starting listen: ~p~n", [Reason]),
+      error(Reason)
+  end;
 handle_cast({closed_client, SocketClient}, #state{} = State) ->
 	logger:info("Client disconnected: ~w~n", [SocketClient]),
 	{noreply, State};
@@ -105,8 +110,8 @@ handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = Stat
   },
   {noreply, NewState};
 
-handle_cast(_Msg, State) ->
-		logger:info("handle_cast: unknown"),
+handle_cast(Msg, State) ->
+		logger:info("handle_cast [unknown]: ~w~n", [Msg]),
     {noreply, State}.
 
 %% ------------------------------------------------------------------
