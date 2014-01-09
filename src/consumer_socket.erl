@@ -2,23 +2,28 @@
 -module(consumer_socket).
 -author("cheese").
 
+-include("types.hrl").
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	code_change/3]).
 
 %% API
-start_link() ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(Socket) ->
+  logger:info("start_link: ~w~n", [?MODULE]),
+  #socket_info{name = Name} = Socket,
+  logger:info("ConsumerSocket ~w: ~p~n", [Name, Socket]),
+	gen_server:start_link({local, Name}, ?MODULE, [Socket], []).
 
 %% gen_server callbacks
 -record(state, {}).
 
-init(_Args) ->
+init(_Socket) ->
+  logger:info("init: ~w~n", [?MODULE]),
 	{ok, #state{}}.
 
 handle_call(_Request, _From, State) ->

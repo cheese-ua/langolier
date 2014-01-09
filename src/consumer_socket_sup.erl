@@ -2,31 +2,34 @@
 -module(consumer_socket_sup).
 -author("cheese").
 
+-include("types.hrl").
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% supervisor
 -export([init/1]).
 
 %% API
-start_link() ->
-	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Socket) ->
+  SuperVisorName = socket_utilites:get_name(Socket, "super_"),
+	supervisor:start_link({local, SuperVisorName}, ?MODULE, [Socket]).
 
 %% supervisor callbacks
-init([]) ->
-	RestartStrategy = one_for_one, % one_for_one | one_for_all | rest_for_one
-	MaxRestarts = 0,
-	MaxSecondsBetweenRestarts = 10,
-	SupFlags = {RestartStrategy, MaxRestarts, MaxSecondsBetweenRestarts},
+init([Socket]) ->
 
-	Restart = permanent, % permanent | transient | temporary
-	Shutdown = 2000,     % brutal_kill | int() >= 0 | infinity
+  InitSocketParam = socket_utilites:parseSocket(Socket),
 
-	SomeWorker = {consumer_socket,
-		{consumer_socket, start_link, []},
-		Restart, Shutdown, worker,
-		[consumer_socket]},
+  SuperVisorName = socket_utilites:get_name(Socket, "super_"),
 
-	{ok, {SupFlags, [SomeWorker]}}.
+  logger:info("Start supervisor ~w: ~w, ~p~n", [?MODULE, SuperVisorName, InitSocketParam]),
+
+	SomeWorker = {SuperVisorName,
+		{consumer_socket, start_link, [InitSocketParam]},
+    permanent, 2, worker,
+		[]},
+
+	{ok, {
+    {one_for_one, 2, 5},
+    [SomeWorker]}}.
