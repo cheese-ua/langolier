@@ -11,7 +11,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/1, send_to_last_accepted/1, test/0]).
+-export([start_link/2, send_to_last_accepted/1, test/0]).
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
@@ -23,9 +23,9 @@
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
-start_link(MainSocket) ->
+start_link(MainSocket, Handler) ->
 		logger:info("start_link: ~w~n", [?MODULE]),
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [MainSocket], []).
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [MainSocket, Handler], []).
 
 send_to_last_accepted(Bytes) ->
 	gen_server:call(?SERVER, {send_to_last_accepted, Bytes}).
@@ -35,8 +35,8 @@ test() ->
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
-init([SocketInfo]) ->
-  gen_server:cast(?SERVER, {init, SocketInfo}),
+init([SocketInfo, Handler]) ->
+  gen_server:cast(?SERVER, {init, SocketInfo, Handler}),
   {ok, #state{
     server = SocketInfo
   }}.
@@ -77,7 +77,7 @@ handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 %% ------------------------------------------------------------------
-handle_cast({init, SocketInfo}, _State) ->
+handle_cast({init, SocketInfo, Handler}, _State) ->
   logger:info("init: ~w~n", [?MODULE]),
   logger:info("Server: ~p~n", [SocketInfo]),
   #socket_info{port = Port} = SocketInfo,
@@ -86,7 +86,7 @@ handle_cast({init, SocketInfo}, _State) ->
       logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer]),
       Pid = spawn(?SERVER, accept, [SocketServer]),
       logger:info("Accept Pid: ~p~n", [Pid]),
-      {noreply, #state{server = SocketInfo }};
+      {noreply, #state{server = SocketInfo, message_handler = Handler }};
     {error, Reason} ->
       logger:info("Error starting listen: ~p~n", [Reason]),
       error(Reason)
