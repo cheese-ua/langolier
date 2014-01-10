@@ -2,7 +2,7 @@
 -module(main_socket_sup).
 -author("cheese").
 
--include("types.hrl").
+  -include("types.hrl").
 -behaviour(supervisor).
 
 %% API

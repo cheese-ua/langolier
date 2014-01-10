@@ -6,30 +6,45 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/1]).
+-export([start_link/1, prepare_workers/2]).
 
 %% supervisor
 -export([init/1]).
 
 %% API
+-spec(start_link([]) -> 'ignore' | {'error',_} | {'ok',pid()}).
 start_link(Socket) ->
-  SuperVisorName = socket_utilites:get_name(Socket, "super_"),
-	supervisor:start_link({local, SuperVisorName}, ?MODULE, [Socket]).
+  logger:info("Start supervisor ~w~n", [?MODULE]),
+	supervisor:start_link({local, ?MODULE}, ?MODULE, [Socket]).
+
 
 %% supervisor callbacks
-init([Socket]) ->
+init([ClientsSockets]) ->
+  logger:info("Init supervisor ~w: ~p~n", [?MODULE, ClientsSockets]),
 
-  InitSocketParam = socket_utilites:parseSocket(Socket),
+  WorkersSockets = prepare_workers(ClientsSockets, []),
 
-  SuperVisorName = socket_utilites:get_name(Socket, "super_"),
-
-  logger:info("Start supervisor ~w: ~w, ~p~n", [?MODULE, SuperVisorName, InitSocketParam]),
-
-	SomeWorker = {SuperVisorName,
-		{consumer_socket, start_link, [InitSocketParam]},
+  WorkerControl = {consumer_control,
+    {consumer_control, start_link, []},
     permanent, 2, worker,
-		[]},
+    []},
 
 	{ok, {
     {one_for_one, 2, 5},
-    [SomeWorker]}}.
+    [WorkerControl | WorkersSockets]}}.
+
+
+-spec(prepare_workers([term()], [#socket_info{}]) -> [{atom(), {consumer_socket, start_link, [#socket_info{}]},  permanent, 2, worker,  []}]).
+prepare_workers([], Res) ->
+  lists:reverse(Res);
+prepare_workers([Socket | Tail], Res) ->
+  #socket_info{name = Name} = Socket,
+  Suffix = atom_to_list(Name),
+  WorkerName = list_to_atom("consumer_worker_" ++ Suffix),
+  NewRes = [
+    {WorkerName,
+      {consumer_socket, start_link, [Socket]},
+      permanent, 2, worker,
+      []}
+     | Res],
+  prepare_workers(Tail, NewRes).

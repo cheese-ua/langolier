@@ -13,6 +13,7 @@
 	code_change/3]).
 
 %% API
+-spec(start_link(#socket_info{}) -> 'ignore' | {'error',_} | {'ok',pid()}).
 start_link(Socket) ->
   logger:info("start_link: ~w~n", [?MODULE]),
   #socket_info{name = Name} = Socket,
@@ -22,8 +23,10 @@ start_link(Socket) ->
 %% gen_server callbacks
 -record(state, {}).
 
-init(_Socket) ->
-  logger:info("init: ~w~n", [?MODULE]),
+-spec(init(#socket_info{}) -> {ok,#state{}}).
+init([Socket]) ->
+  logger:info("init socket_info?: ~w, ~p~n", [?MODULE, Socket]),
+  consumer_control:register(#consumer_info{name = Socket#socket_info.name, pid = self()}),
 	{ok, #state{}}.
 
 handle_call(_Request, _From, State) ->
