@@ -14,6 +14,7 @@
 
 %% API
 start_link(MainSocket) ->
+  logger:register_file(?LOG_FILE),
 	supervisor:start_link({local, ?MODULE}, ?MODULE, [MainSocket]).
 
 %% supervisor callbacks

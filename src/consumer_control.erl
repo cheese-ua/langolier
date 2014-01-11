@@ -56,6 +56,7 @@ send_message(Bytes) ->
 %%
 %%--------------------------------------------------------------------
 start_link() ->
+  logger:register_file(?LOG_FILE),
   gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %%%===================================================================

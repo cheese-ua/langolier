@@ -15,6 +15,7 @@
 %% API
 -spec(start_link([]) -> 'ignore' | {'error',_} | {'ok',pid()}).
 start_link(Socket) ->
+  logger:register_file(?LOG_FILE),
   logger:info("Start supervisor ~w~n", [?MODULE], ?LOG_FILE),
 	supervisor:start_link({local, ?MODULE}, ?MODULE, [Socket]).
 

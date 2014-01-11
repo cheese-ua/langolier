@@ -10,6 +10,7 @@ start() ->
     ok.
 
 start(_StartType, _StartArgs) ->
+    logger:register_file(?LOG_FILE),
 		logger:info("Start application: ~w~n", [?MODULE], ?LOG_FILE),
 
     {ok, MainSocket} = application:get_env(langolier_app, main_socket),

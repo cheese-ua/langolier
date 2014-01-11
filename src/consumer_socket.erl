@@ -25,6 +25,7 @@
 start_link(Socket, Handler) ->
   Name = Socket#socket_info.name,
   LogFileName = get_file_name(Name),
+  logger:register_file(LogFileName),
   logger:info("start_link: ~w~n", [?MODULE], LogFileName),
   logger:info("ConsumerSocket ~w: ~p~n", [Name, Socket], LogFileName),
 	gen_server:start_link({local, Name}, ?MODULE, [Socket, Handler], []).

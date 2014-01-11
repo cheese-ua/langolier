@@ -7,8 +7,7 @@
   server :: #socket_info{},
   server_instance,
   clients=[],
-  message_handler,
-	messages=[]}).
+  message_handler}).
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
@@ -26,6 +25,7 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 start_link(MainSocket, Handler) ->
+    logger:register_file(?LOG_FILE),
 		logger:info("start_link: ~w~n", [?MODULE], ?LOG_FILE),
     gen_server:start_link({local, ?SERVER}, ?MODULE, [MainSocket, Handler], []).
 
@@ -120,16 +120,11 @@ handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
   NewClients = delete_client(SocketClient, [], Clients),
   logger:info("New Clients: ~w~n", [NewClients], ?LOG_FILE),
 	{noreply, State#state{clients = NewClients}};
-handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler, messages = Messages} = State) ->
+handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler} = State) ->
   {ok,{Ip,Port}} = inet:peername(SocketClient),
   logger:info("Receive message from ~p:~w: ~p~n", [Ip,Port, NewBytes], ?LOG_FILE),
-	case handle_message(Handler, NewBytes) of
-		{undefined, handler_is_absent} ->
-			NewState =State#state{messages = [{NewBytes}, Messages]},
-  		{noreply, NewState};
-		_ ->
-			{noreply, State}
-	end;
+	handle_message(Handler, NewBytes),
+  {noreply, State};
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
 	NewClients=[SocketClient | Clients],
   logger:info("Active clients [~w]: ~w~n", [length(NewClients), NewClients], ?LOG_FILE),
