@@ -34,4 +34,4 @@ init([SocketParam]) ->
   }.
 
 handler(Bytes) ->
-  logger:info("Handle message ~w~n", [Bytes], ?LOG_FILE).
+  consumer_control:send_message(Bytes).

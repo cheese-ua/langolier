@@ -5,6 +5,7 @@
 -include("../include/types.hrl").
 -record(state, {
   server :: #socket_info{},
+  server_instance,
   clients=[],
   message_handler,
 	messages=[]}).
@@ -74,6 +75,27 @@ receive_from_client(SocketClient) ->
   end.
 
 %% ------------------------------------------------------------------
+
+handle_call({send_to_last_accepted, Bytes}, _From, #state{ clients = Clients}= State) ->
+  Res = case Clients of
+    [] ->
+      logger:info("Clients is absent message ignored: ~p~n", [Bytes], ?LOG_FILE),
+      {error, no_clients};
+    [Head | _] ->
+      {ok,{Ip,Port}} = inet:peername(Head),
+      logger:info("Send to ~p:~w: ~p~n", [Ip, Port, Bytes], ?LOG_FILE),
+      ResSend = case gen_tcp:send(State#state.server_instance, Bytes) of
+              ok ->
+                logger:info("Send ok~n", ?LOG_FILE),
+                ok;
+              {error, Reason} ->
+                logger:info("Send error: ~p~n", [Reason], ?LOG_FILE),
+                {error, Reason}
+            end,
+      ResSend
+  end,
+  {reply, Res, State};
+%% ------------------------------------------------------------------
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
@@ -83,12 +105,12 @@ handle_cast({init, SocketInfo, Handler}, _State) ->
   logger:info("init: ~w~n", [?MODULE], ?LOG_FILE),
   logger:info("Server: ~p~n", [SocketInfo], ?LOG_FILE),
   #socket_info{port = Port} = SocketInfo,
-  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}])  of
+  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}, {reuseaddr, true}])  of
     {ok, SocketServer} ->
       logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer], ?LOG_FILE),
       Pid = spawn(?SERVER, accept, [SocketServer]),
       logger:info("Accept Pid: ~p~n", [Pid], ?LOG_FILE),
-      {noreply, #state{server = SocketInfo, message_handler = Handler }};
+      {noreply, #state{server = SocketInfo, message_handler = Handler, server_instance = SocketServer }};
     {error, Reason} ->
       logger:info("Error starting listen: ~p~n", [Reason], ?LOG_FILE),
       error(Reason)
@@ -100,7 +122,7 @@ handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
 	{noreply, State#state{clients = NewClients}};
 handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler, messages = Messages} = State) ->
   {ok,{Ip,Port}} = inet:peername(SocketClient),
-  logger:info("Receive message from ~p:~w: ~w~n", [Ip,Port, NewBytes], ?LOG_FILE),
+  logger:info("Receive message from ~p:~w: ~p~n", [Ip,Port, NewBytes], ?LOG_FILE),
 	case handle_message(Handler, NewBytes) of
 		{undefined, handler_is_absent} ->
 			NewState =State#state{messages = [{NewBytes}, Messages]},
@@ -114,15 +136,7 @@ handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = Stat
   NewState = State#state{
    clients=NewClients
   },
-  {noreply, NewState};
-
-handle_cast(test, #state{clients = [Client | _]} = State) ->
-  Res =gen_tcp:send(Client, "TEST"),
-  logger:info("Send to [~w]: ~w~n", [Client, Res], ?LOG_FILE),
-  {noreply, State};
- handle_cast(Msg, State) ->
-		logger:info("handle_cast [unknown]: ~w~n", [Msg], ?LOG_FILE),
-    {noreply, State}.
+  {noreply, NewState}.
 
 %% ------------------------------------------------------------------
 handle_info(test, State) ->

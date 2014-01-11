@@ -48,10 +48,10 @@ handle_call({send, Bytes}, _From, State) ->
   logger:info("Send to ~p: ~p~n", [State#state.server_name, Bytes], State#state.file_name),
   Res = case gen_tcp:send(State#state.socket_instance, Bytes) of
     ok ->
-      logger:info("Send ok: ~p~n", [Bytes], State#state.file_name),
+      logger:info("Send ok~n", State#state.file_name),
       ok;
     {error, Reason} ->
-      logger:info("Send error: ~p. ~p~n", [Reason, Bytes], State#state.file_name),
+      logger:info("Send error: ~p~n", [Reason], State#state.file_name),
       {error, Reason}
   end,
   {reply, Res, State};
@@ -75,7 +75,7 @@ handle_cast({init, SocketInfo, Handler}, State) ->
   logger:info("Connected to ~p:~w success: ~w ~n", [Ip, Port, Socket], LogFileName),
   socket_utilites:timeout_seconds(1000),
   NewState = State#state{
-    handler = Handler,
+     handler = Handler,
      socket_info = SocketInfo,
      socket_instance = Socket,
      file_name = LogFileName,
@@ -83,19 +83,14 @@ handle_cast({init, SocketInfo, Handler}, State) ->
   },
   {noreply, NewState};
 %%===================================================================
-handle_cast({receive_from_client, Bytes}, State) ->
-  logger:info("Receive message: ~w~n", [Bytes], State#state.file_name),
-  Handler =State#state.handler,
-  handle_message(Handler, Bytes),
-  {noreply, State};
-%%===================================================================
 handle_cast(_Request, State) ->
 	{noreply, State}.
 
 %%%===================================================================
-handle_info({tcp, RemoteSocket, Bytes}, State) ->
+handle_info({tcp, RemoteSocket, Bytes}, #state{ handler = Handler} =  State) ->
   {ok,{Ip,Port}} = inet:peername(RemoteSocket),
   logger:info("Receive message from ~p:~w: ~w~n", [Ip,Port, Bytes], State#state.file_name),
+  handle_message(Handler, Bytes),
   {noreply, State};
 %%%===================================================================
 handle_info({tcp_closed, RemoteSocket}, State) ->
