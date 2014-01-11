@@ -4,9 +4,10 @@
 
 -include("types.hrl").
 -behaviour(supervisor).
+-define(LOG_FILE, "log/consumer_control.log").
 
 %% API
--export([start_link/1, prepare_workers/2]).
+-export([start_link/1, prepare_workers/2, handle_message/2]).
 
 %% supervisor
 -export([init/1]).
@@ -14,13 +15,13 @@
 %% API
 -spec(start_link([]) -> 'ignore' | {'error',_} | {'ok',pid()}).
 start_link(Socket) ->
-  logger:info("Start supervisor ~w~n", [?MODULE]),
+  logger:info("Start supervisor ~w~n", [?MODULE], ?LOG_FILE),
 	supervisor:start_link({local, ?MODULE}, ?MODULE, [Socket]).
 
 
 %% supervisor callbacks
 init([ClientsSockets]) ->
-  logger:info("Init supervisor ~w: ~p~n", [?MODULE, ClientsSockets]),
+  logger:info("Init supervisor ~w: ~p~n", [?MODULE, ClientsSockets], ?LOG_FILE),
 
   WorkersSockets = prepare_workers(ClientsSockets, []),
 
@@ -30,7 +31,7 @@ init([ClientsSockets]) ->
     []},
 
 	{ok, {
-    {one_for_one, 2, 5},
+    {one_for_one, 200000000, 1},
     [WorkerControl | WorkersSockets]}}.
 
 
@@ -43,8 +44,11 @@ prepare_workers([Socket | Tail], Res) ->
   WorkerName = list_to_atom("consumer_worker_" ++ Suffix),
   NewRes = [
     {WorkerName,
-      {consumer_socket, start_link, [Socket]},
+      {consumer_socket, start_link, [Socket, fun consumer_socket_sup:handle_message/2]},
       permanent, 2, worker,
       []}
      | Res],
   prepare_workers(Tail, NewRes).
+
+handle_message(_Bytes, _Socket) ->
+  ok.

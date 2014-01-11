@@ -3,13 +3,14 @@
 -behaviour(supervisor).
 
 -export([start_link/2, init/1]).
+-define(LOG_FILE, "log/app.log").
 
 start_link(MainSocket, ClientsSockets) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, [MainSocket, ClientsSockets]).
 
 
 init([MainSocket, ClientsSockets]) ->
-		logger:info("Start supervisor: ~w~n", [?MODULE]),
+		logger:info("Start supervisor: ~w~n", [?MODULE], ?LOG_FILE),
 
     MainSocketWorker = {main_socket_sup,
 		  {main_socket_sup, start_link, [MainSocket]},

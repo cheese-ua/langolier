@@ -4,7 +4,7 @@
 -include("types.hrl").
 
 %% API
--export([parseSocketList/1, parseSocket/1, get_name/1, get_name/2]).
+-export([parseSocketList/1, parseSocket/1, get_name/1, get_name/2, timeout_seconds/1]).
 
 %%---------------------------------------------------------
 %%  Prepare list of #socket_info from application settings
@@ -43,3 +43,11 @@ get_name(List, Prefix) ->
   Name = get_name(List),
   Suffix = atom_to_list(Name),
   list_to_atom(Prefix ++ Suffix).
+
+timeout_seconds(Seconds) ->
+  receive
+    illegal_message ->
+      ok
+  after Seconds ->
+    ok
+  end.

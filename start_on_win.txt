@@ -11,3 +11,6 @@ main_socket:start_link(socket_utilites:parseSocket([{type, server}, {ip, <<"10.5
 appmon:start().
 
 main_socket:test().
+consumer_control:get_next_consumer().
+
+consumer_control:send_echo().
