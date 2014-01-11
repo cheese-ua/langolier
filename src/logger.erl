@@ -88,6 +88,10 @@ handle_cast(_Request, State) ->
 handle_info(check_size, State) ->
   {noreply, State};
 %%--------------------------------------------------------------------
+handle_info(status, #state{files = Files}= State) ->
+  info("Files: ~p~n", [Files], ?LOG_FILE),
+  {noreply, State};
+%%--------------------------------------------------------------------
 handle_info(_Info, State) ->
   {noreply, State}.
 
@@ -127,16 +131,21 @@ check_file_size(FileName) ->
 move_file(FileName) ->
   FileNameAbs = filename:absname(FileName),
   FileNameWithoutExt = filename:basename(FileName),
-  info("FileNameWothoutExt: ~p~n", [FileNameWithoutExt], ?LOG_FILE),
   FileDir = filename:absname(filename:dirname(FileName)),
   NewFileDir =FileDir ++ "/" ++ "arch",
   file:make_dir(NewFileDir),
-  info("FileDir: ~p~n", [FileDir], ?LOG_FILE),
   NewFileName = NewFileDir ++ "/" ++ FileNameWithoutExt ++ ".arch",
-  info("NewFileName: ~p~n", [NewFileName], ?LOG_FILE),
-  file:rename(FileNameAbs, NewFileName),
-  ZipCommand = "zip -mj " ++ NewFileName ++ ".zip " ++ NewFileName,
-  spawn(?SERVER, zip, [ZipCommand]).
+  Res = file:rename(FileNameAbs, NewFileName),
+  info("rename: ~p [~p] to [~p] ~n", [Res, FileNameAbs, NewFileName], ?LOG_FILE),
+  spawn(?SERVER, zip, [NewFileName]).
 
-zip(ZipCommand) ->
+zip(FileName) ->
+  {{Year, Month, Day}, {Hour, Min, Second} } = calendar:local_time(),
+  Date = lists:flatten(io_lib:format("~B~2.10.0B~2.10.0B~2.10.0B~2.10.0B~2.10.0B", [Year, Month, Day, Hour, Min, Second])),
+
+  FileDir = filename:absname(filename:dirname(FileName)),
+  FileNameWithoutExt = filename:basename(FileName),
+
+  ZipCommand = "zip -mj " ++FileDir ++ "/" ++ Date ++ "_" ++ FileNameWithoutExt ++ ".zip " ++ FileName,
+  info("ZipCommand: ~p~n", [ZipCommand], ?LOG_FILE),
   os:cmd(ZipCommand).
