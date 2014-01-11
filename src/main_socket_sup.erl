@@ -4,6 +4,7 @@
 
 -include("types.hrl").
 -behaviour(supervisor).
+-define(LOG_FILE, "log/main_socket.log").
 
 %% API
 -export([start_link/1, handler/1]).
@@ -17,7 +18,7 @@ start_link(MainSocket) ->
 
 %% supervisor callbacks
 init([SocketParam]) ->
-  logger:info("Start supervisor: ~w~n", [?MODULE]),
+  logger:info("Start supervisor: ~w~n", [?MODULE], ?LOG_FILE),
 
   InitSocketParam = socket_utilites:parseSocket(SocketParam),
 
@@ -27,10 +28,10 @@ init([SocketParam]) ->
 		[]},
 
 	{ok, {
-        {one_for_one,2,5},
+        {one_for_one,200000,1},
         [InstanceSocket]
       }
   }.
 
 handler(Bytes) ->
-  logger:info("Handle message ~w~n", [Bytes]).
+  consumer_control:send_message(Bytes).

@@ -10,21 +10,26 @@
 -author("cheese").
 
 %% API
--export([error/1, error/2, info/1, info/2]).
+-export([info/2, info/3, error/2, error/3]).
 
-info(Message) ->
+info(Message, FileName) ->
 	{{Year, Month, Day}, {Hour, Min, Second} } = calendar:local_time(),
 	Date = lists:flatten(io_lib:format("~B-~2.10.0B-~2.10.0B ~2.10.0B:~2.10.0B:~2.10.0B ~w ", [Year, Month, Day, Hour, Min, Second, self()])),
-	io:format("~s ~s~n",[Date , Message]).
+  MessageDate = io_lib:fwrite("~s ~s",[Date , Message]),
+  io:format("~s~n",[MessageDate]),
+  file:write_file(FileName, MessageDate, [append]).
 
-info(Format, Data) ->
+info(Format, Data, FileName) ->
 	{{Year, Month, Day}, {Hour, Min, Second} } = calendar:local_time(),
 	Date = lists:flatten(io_lib:format("~B-~2.10.0B-~2.10.0B ~2.10.0B:~2.10.0B:~2.10.0B ~w ", [Year, Month, Day, Hour, Min, Second, self()])),
-	Message = io_lib:format(Format, Data),
-	io:format("~s ~s",[Date , Message]).
+	Message = io_lib:fwrite(Format, Data),
+  MessageDate = io_lib:fwrite("~s ~s",[Date , Message]),
+  io:format("~s",[MessageDate]),
+  file:write_file(FileName, MessageDate, [append]).
 
-error(Message) ->
-	info(Message).
+error(Message, FileName) ->
+  info(Message, FileName).
 
-error(Format, Data) ->
-	info(Format, Data).
+error(Format, Data, FileName) ->
+  info(Format, Data, FileName).
+

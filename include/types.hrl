@@ -6,5 +6,9 @@
 }).
 
 
+-record(consumer_info, {
+  name :: atom(),
+  pid :: pid()
+}).
 
 

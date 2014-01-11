@@ -1,9 +1,11 @@
 -module(main_socket).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
+-define(LOG_FILE, "log/main_socket.log").
 -include("../include/types.hrl").
 -record(state, {
   server :: #socket_info{},
+  server_instance,
   clients=[],
   message_handler,
 	messages=[]}).
@@ -24,7 +26,7 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 start_link(MainSocket, Handler) ->
-		logger:info("start_link: ~w~n", [?MODULE]),
+		logger:info("start_link: ~w~n", [?MODULE], ?LOG_FILE),
     gen_server:start_link({local, ?SERVER}, ?MODULE, [MainSocket, Handler], []).
 
 send_to_last_accepted(Bytes) ->
@@ -47,17 +49,17 @@ init([SocketInfo, Handler]) ->
 %% ------------------------------------------------------------------
 -spec(accept(port()) -> {stopped, atom()}).
 accept(SocketServer) ->
-	logger:info("Begin accept: ~p~n", [SocketServer]),
+	logger:info("Begin accept: ~p~n", [SocketServer], ?LOG_FILE),
   Res = gen_tcp:accept(SocketServer),
-  logger:info("Res: ~p~n", [Res]),
+  logger:info("Res: ~p~n", [Res], ?LOG_FILE),
 	case Res of
 		{ok, SocketClient} ->
-				logger:info("Accepted client: ~p~n", [SocketClient]),
+				logger:info("Accepted client: ~p~n", [SocketClient], ?LOG_FILE),
   			gen_server:cast(?SERVER, {accept_socket_client, SocketClient}),
   			spawn(?SERVER, receive_from_client, [SocketClient]),
 				accept(SocketServer);
 		{error, Reason} ->
-			logger:info("Error: ~w~n",[{Reason}]),
+			logger:info("Error: ~w~n",[{Reason}], ?LOG_FILE),
 			{stopped, Reason}
 		end.
 
@@ -73,31 +75,54 @@ receive_from_client(SocketClient) ->
   end.
 
 %% ------------------------------------------------------------------
+
+handle_call({send_to_last_accepted, Bytes}, _From, #state{ clients = Clients}= State) ->
+  Res = case Clients of
+    [] ->
+      logger:info("Clients is absent message ignored: ~p~n", [Bytes], ?LOG_FILE),
+      {error, no_clients};
+    [Head | _] ->
+      {ok,{Ip,Port}} = inet:peername(Head),
+      logger:info("Send to ~p:~w: ~p~n", [Ip, Port, Bytes], ?LOG_FILE),
+      ResSend = case gen_tcp:send(State#state.server_instance, Bytes) of
+              ok ->
+                logger:info("Send ok~n", ?LOG_FILE),
+                ok;
+              {error, Reason} ->
+                logger:info("Send error: ~p~n", [Reason], ?LOG_FILE),
+                {error, Reason}
+            end,
+      ResSend
+  end,
+  {reply, Res, State};
+%% ------------------------------------------------------------------
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
 %% ------------------------------------------------------------------
 handle_cast({init, SocketInfo, Handler}, _State) ->
-  logger:info("init: ~w~n", [?MODULE]),
-  logger:info("Server: ~p~n", [SocketInfo]),
+  socket_utilites:timeout_seconds(1000),
+  logger:info("init: ~w~n", [?MODULE], ?LOG_FILE),
+  logger:info("Server: ~p~n", [SocketInfo], ?LOG_FILE),
   #socket_info{port = Port} = SocketInfo,
-  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}])  of
+  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}, {reuseaddr, true}])  of
     {ok, SocketServer} ->
-      logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer]),
+      logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer], ?LOG_FILE),
       Pid = spawn(?SERVER, accept, [SocketServer]),
-      logger:info("Accept Pid: ~p~n", [Pid]),
-      {noreply, #state{server = SocketInfo, message_handler = Handler }};
+      logger:info("Accept Pid: ~p~n", [Pid], ?LOG_FILE),
+      {noreply, #state{server = SocketInfo, message_handler = Handler, server_instance = SocketServer }};
     {error, Reason} ->
-      logger:info("Error starting listen: ~p~n", [Reason]),
+      logger:info("Error starting listen: ~p~n", [Reason], ?LOG_FILE),
       error(Reason)
   end;
 handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
-	logger:info("Client disconnected: ~w~n", [SocketClient]),
+	logger:info("Client disconnected: ~w~n", [SocketClient], ?LOG_FILE),
   NewClients = delete_client(SocketClient, [], Clients),
-  logger:info("New Clients: ~w~n", [NewClients]),
+  logger:info("New Clients: ~w~n", [NewClients], ?LOG_FILE),
 	{noreply, State#state{clients = NewClients}};
 handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler, messages = Messages} = State) ->
-  logger:info("Receive message from ~w: ~w~n", [SocketClient, NewBytes]),
+  {ok,{Ip,Port}} = inet:peername(SocketClient),
+  logger:info("Receive message from ~p:~w: ~p~n", [Ip,Port, NewBytes], ?LOG_FILE),
 	case handle_message(Handler, NewBytes) of
 		{undefined, handler_is_absent} ->
 			NewState =State#state{messages = [{NewBytes}, Messages]},
@@ -107,34 +132,26 @@ handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handle
 	end;
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
 	NewClients=[SocketClient | Clients],
-  logger:info("Active clients [~w]: ~w~n", [length(NewClients), NewClients]),
+  logger:info("Active clients [~w]: ~w~n", [length(NewClients), NewClients], ?LOG_FILE),
   NewState = State#state{
    clients=NewClients
   },
-  {noreply, NewState};
-
-handle_cast(test, #state{clients = [Client | _]} = State) ->
-  Res =gen_tcp:send(Client, "TEST"),
-  logger:info("Send to [~w]: ~w~n", [Client, Res]),
-  {noreply, State};
- handle_cast(Msg, State) ->
-		logger:info("handle_cast [unknown]: ~w~n", [Msg]),
-    {noreply, State}.
+  {noreply, NewState}.
 
 %% ------------------------------------------------------------------
 handle_info(test, State) ->
-  logger:info("State: ~p~n", [State]),
+  logger:info("State: ~p~n", [State], ?LOG_FILE),
   {noreply, State};
 handle_info(_Info, State) ->
-		logger:info("handle_info: unknown"),
+		logger:info("handle_info: unknown", ?LOG_FILE),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
-		logger:info("terminate: unknown"),
+		logger:info("terminate: unknown", ?LOG_FILE),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
-		logger:info("code_change: unknown"),
+		logger:info("code_change: unknown", ?LOG_FILE),
     {ok, State}.
 
 %% ------------------------------------------------------------------
