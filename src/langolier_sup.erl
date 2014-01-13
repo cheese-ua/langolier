@@ -6,11 +6,17 @@
 -define(LOG_FILE, "log/app.log").
 
 start_link(MainSocket, ClientsSockets) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [MainSocket, ClientsSockets]).
+  logger:register_file(?LOG_FILE),
+  supervisor:start_link({local, ?MODULE}, ?MODULE, [MainSocket, ClientsSockets]).
 
 
 init([MainSocket, ClientsSockets]) ->
 		logger:info("Start supervisor: ~w~n", [?MODULE], ?LOG_FILE),
+
+    LogWorker = {logger_sup,
+    {logger, start_link, []},
+    permanent, 2000, worker,
+    []},
 
     MainSocketWorker = {main_socket_sup,
 		  {main_socket_sup, start_link, [MainSocket]},
@@ -26,6 +32,6 @@ init([MainSocket, ClientsSockets]) ->
 
     {ok, {
       {one_for_one, 2, 5},
-      [MainSocketWorker, ConsumerSocketWorker]
+      [LogWorker, MainSocketWorker, ConsumerSocketWorker]
          }
     }.

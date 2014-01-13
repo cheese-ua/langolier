@@ -7,8 +7,7 @@
   server :: #socket_info{},
   server_instance,
   clients=[],
-  message_handler,
-	messages=[]}).
+  message_handler}).
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
@@ -26,6 +25,7 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 start_link(MainSocket, Handler) ->
+    logger:register_file(?LOG_FILE),
 		logger:info("start_link: ~w~n", [?MODULE], ?LOG_FILE),
     gen_server:start_link({local, ?SERVER}, ?MODULE, [MainSocket, Handler], []).
 
@@ -54,7 +54,8 @@ accept(SocketServer) ->
   logger:info("Res: ~p~n", [Res], ?LOG_FILE),
 	case Res of
 		{ok, SocketClient} ->
-				logger:info("Accepted client: ~p~n", [SocketClient], ?LOG_FILE),
+      {ok,{Ip,Port}} = inet:peername(SocketClient),
+				logger:info("Accepted client ~p: ~w:~w~n", [SocketClient, Ip,Port], ?LOG_FILE),
   			gen_server:cast(?SERVER, {accept_socket_client, SocketClient}),
   			spawn(?SERVER, receive_from_client, [SocketClient]),
 				accept(SocketServer);
@@ -75,7 +76,6 @@ receive_from_client(SocketClient) ->
   end.
 
 %% ------------------------------------------------------------------
-
 handle_call({send_to_last_accepted, Bytes}, _From, #state{ clients = Clients}= State) ->
   Res = case Clients of
     [] ->
@@ -83,10 +83,10 @@ handle_call({send_to_last_accepted, Bytes}, _From, #state{ clients = Clients}= S
       {error, no_clients};
     [Head | _] ->
       {ok,{Ip,Port}} = inet:peername(Head),
-      logger:info("Send to ~p:~w: ~p~n", [Ip, Port, Bytes], ?LOG_FILE),
-      ResSend = case gen_tcp:send(State#state.server_instance, Bytes) of
+      logger:info("Send to ~p:~w: ~w~n", [Ip, Port, Bytes], ?LOG_FILE),
+      ResSend = case gen_tcp:send(Head, Bytes) of
               ok ->
-                logger:info("Send ok~n", ?LOG_FILE),
+                logger:info("Send ok", ?LOG_FILE),
                 ok;
               {error, Reason} ->
                 logger:info("Send error: ~p~n", [Reason], ?LOG_FILE),
@@ -104,8 +104,8 @@ handle_cast({init, SocketInfo, Handler}, _State) ->
   socket_utilites:timeout_seconds(1000),
   logger:info("init: ~w~n", [?MODULE], ?LOG_FILE),
   logger:info("Server: ~p~n", [SocketInfo], ?LOG_FILE),
-  #socket_info{port = Port} = SocketInfo,
-  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}, {reuseaddr, true}])  of
+  #socket_info{port = Port, ip = IP} = SocketInfo,
+  case gen_tcp:listen(Port, [binary, {packet, 0},{active, false}, {reuseaddr, true}, {ip, IP}])  of
     {ok, SocketServer} ->
       logger:info("Started server on port: ~p. ~p~n", [Port, SocketServer], ?LOG_FILE),
       Pid = spawn(?SERVER, accept, [SocketServer]),
@@ -120,16 +120,11 @@ handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
   NewClients = delete_client(SocketClient, [], Clients),
   logger:info("New Clients: ~w~n", [NewClients], ?LOG_FILE),
 	{noreply, State#state{clients = NewClients}};
-handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler, messages = Messages} = State) ->
+handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler} = State) ->
   {ok,{Ip,Port}} = inet:peername(SocketClient),
-  logger:info("Receive message from ~p:~w: ~p~n", [Ip,Port, NewBytes], ?LOG_FILE),
-	case handle_message(Handler, NewBytes) of
-		{undefined, handler_is_absent} ->
-			NewState =State#state{messages = [{NewBytes}, Messages]},
-  		{noreply, NewState};
-		_ ->
-			{noreply, State}
-	end;
+  logger:info("Receive message from ~p:~w: ~w~n", [Ip,Port, NewBytes], ?LOG_FILE),
+	handle_message(Handler, NewBytes),
+  {noreply, State};
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
 	NewClients=[SocketClient | Clients],
   logger:info("Active clients [~w]: ~w~n", [length(NewClients), NewClients], ?LOG_FILE),
