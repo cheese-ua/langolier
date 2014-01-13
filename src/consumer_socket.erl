@@ -46,13 +46,13 @@ init([Socket, Handler]) ->
 
 %%%===================================================================
 handle_call({send, Bytes}, _From, State) ->
-  logger:info("Send to ~p: ~p~n", [State#state.server_name, Bytes], State#state.file_name),
+  logger:info("Send to ~w: ~w~n", [State#state.server_name, Bytes], State#state.file_name),
   Res = case gen_tcp:send(State#state.socket_instance, Bytes) of
     ok ->
-      logger:info("Send ok~n", State#state.file_name),
+      logger:info("Send ok", State#state.file_name),
       ok;
     {error, Reason} ->
-      logger:info("Send error: ~p~n", [Reason], State#state.file_name),
+      logger:info("Send error: ~w~n", [Reason], State#state.file_name),
       {error, Reason}
   end,
   {reply, Res, State};

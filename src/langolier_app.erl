@@ -14,13 +14,14 @@ start(_StartType, _StartArgs) ->
 		logger:info("Start application: ~w~n", [?MODULE], ?LOG_FILE),
 
     {ok, MainSocket} = application:get_env(langolier_app, main_socket),
-    logger:info("MainSocket: ~w~n", [MainSocket], ?LOG_FILE),
+    logger:info("MainSocket: ~p~n", [MainSocket], ?LOG_FILE),
 
     {ok, ClientsSockets} = application:get_env(langolier_app, clients_sockets),
-    logger:info("ClientsSockets: ~w~n", [ClientsSockets], ?LOG_FILE),
+    logger:info("ClientsSockets: ~p~n", [ClientsSockets], ?LOG_FILE),
 
     langolier_sup:start_link(MainSocket, ClientsSockets).
 
 stop(_State) ->
+  logger:info("Stop application: ~w~n", [?MODULE], ?LOG_FILE),
     ok.
 
