@@ -53,7 +53,9 @@ send_echo() ->
 send_message(Bytes) ->
   case get_next_consumer() of
     not_present
-      -> {failed, not_present };
+      ->
+      logger:info("message ignored", ?LOG_FILE),
+      {failed, not_present };
     Consumer ->
       consumer_socket:send_message(Bytes, Consumer#consumer_info.name)
   end.
@@ -81,6 +83,7 @@ handle_call(get_next_consumer, _From, State) ->
   Consumers = State#state.consumers,
   case Consumers of
     [] ->
+      logger:info("no consumer found", ?LOG_FILE),
       {reply, not_present, State};
     [Head | Tail] ->
       NewState = State#state{

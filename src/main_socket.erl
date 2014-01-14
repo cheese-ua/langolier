@@ -17,8 +17,8 @@
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, receive_from_client/1, accept/1, handle_message/2,
-          delete_client/3]).
+         terminate/2, code_change/3, receive_from_client/1, accept/1, handle_message/2, handle_one_message/2,
+          delete_client/3, execute_handle_on_messages/2]).
 
 
 %% ------------------------------------------------------------------
@@ -123,7 +123,7 @@ handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
 handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler} = State) ->
   {ok,{Ip,Port}} = inet:peername(SocketClient),
   logger:info("Receive message from ~p:~w: ~w~n", [Ip,Port, NewBytes], ?LOG_FILE),
-	handle_message(Handler, NewBytes),
+	spawn(?SERVER, handle_message, [Handler, NewBytes]),
   {noreply, State};
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
 	NewClients=[SocketClient | Clients],
@@ -153,17 +153,34 @@ code_change(_OldVsn, State, _Extra) ->
 %% Если обработчик события есть - обрабатываем
 %% ------------------------------------------------------------------
 handle_message(Handler, Bytes) ->
-	case Handler of
-		undefined -> {undefined, handler_is_absent};
-		_ ->
+  Messages = socket_utilites:prepare_l2l1_messages_from_bytes(binary:bin_to_list(Bytes), [], ?LOG_FILE),
+  execute_handle_on_messages(Handler, Messages)	.
+
+%% ------------------------------------------------------------------
+%% Запустить на обработку все сообщения
+%% ------------------------------------------------------------------
+execute_handle_on_messages(_Handler, []) ->
+  ok;
+execute_handle_on_messages(Handler, [{HeadMessage} | OtherMessage]) ->
+  spawn(?SERVER, handle_one_message, [Handler, HeadMessage]),
+  execute_handle_on_messages(Handler, OtherMessage).
+
+%% ------------------------------------------------------------------
+%% Запустить на обработку одно конкретное сообщение
+%% ------------------------------------------------------------------
+handle_one_message(Handler, Bytes) ->
+  case Handler of
+    undefined -> {undefined, handler_is_absent};
+    _ ->
       try Handler(Bytes) of
-           Res -> Res
+        Res -> Res
       catch
         ErrRes->
           logger:info("Main handler error: ~w~n", [ErrRes], ?LOG_FILE),
           ErrRes
       end
-	end.
+  end.
+
 
 delete_client(_SocketClient, NewList, []) ->
   NewList;
@@ -171,4 +188,5 @@ delete_client(SocketClient, NewList, [SocketClient | Tail]) ->
   delete_client(SocketClient, NewList, Tail);
 delete_client(SocketClient, NewList, [Head | Tail]) ->
   delete_client(SocketClient, [Head | NewList], Tail).
+
 

@@ -15,7 +15,7 @@
 }).
 
 %% API
--export([start_link/2, send_message/2, handle_message/3, get_file_name/1]).
+-export([start_link/2, send_message/2, handle_message/2, get_file_name/1, handle_one_message/2, execute_handle_one_messages/2]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -90,10 +90,10 @@ handle_cast(_Request, State) ->
 	{noreply, State}.
 
 %%%===================================================================
-handle_info({tcp, RemoteSocket, Bytes}, #state{ handler = Handler} =  State) ->
+handle_info({tcp, RemoteSocket, Bytes}, State) ->
   {ok,{Ip,Port}} = inet:peername(RemoteSocket),
   logger:info("Receive message from ~p:~w: ~w~n", [Ip,Port, Bytes], State#state.file_name),
-  handle_message(Handler, Bytes, State),
+  handle_message(Bytes, State),
   {noreply, State};
 %%%===================================================================
 handle_info({tcp_closed, RemoteSocket}, State) ->
@@ -114,17 +114,39 @@ code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
 
-handle_message(Handler, Bytes, State) ->
+get_file_name(Name) ->
+  "log/" ++ atom_to_list(Name) ++ ".log".
+
+
+%%***************
+%% ------------------------------------------------------------------
+%% Если обработчик события есть - обрабатываем
+%% ------------------------------------------------------------------
+handle_message(Bytes, #state{ file_name = FileName} = State) ->
+  Messages = socket_utilites:prepare_l2l1_messages_from_bytes(binary:bin_to_list(Bytes), [], FileName),
+  execute_handle_one_messages(Messages, State)	.
+
+%% ------------------------------------------------------------------
+%% Запустить на обработку все сообщения
+%% ------------------------------------------------------------------
+execute_handle_one_messages([], _State) ->
+  ok;
+execute_handle_one_messages([{HeadMessage} | OtherMessage], #state{ server_name = _ServerName} = State) ->
+  spawn(?MODULE, handle_one_message, [HeadMessage, State]),
+  execute_handle_one_messages(OtherMessage, State).
+
+%% ------------------------------------------------------------------
+%% Запустить на обработку одно конкретное сообщение
+%% ------------------------------------------------------------------
+handle_one_message(Bytes, #state{ handler = Handler, file_name = FileName}) ->
   case Handler of
     undefined -> {undefined, handler_is_absent};
     _ -> try Handler(Bytes) of
            Res -> Res
          catch
            ErrRes ->
-             logger:info("Consumer handler error: ~w~n", [ErrRes], State#state.file_name),
+             logger:info("Consumer handler error: ~w~n", [ErrRes], FileName),
              ErrRes
          end
   end.
 
-get_file_name(Name) ->
-  "log/" ++ atom_to_list(Name) ++ ".log".

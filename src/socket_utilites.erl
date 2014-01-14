@@ -4,7 +4,7 @@
 -include("types.hrl").
 
 %% API
--export([parseSocketList/1, parseSocket/1, get_name/1, get_name/2, timeout_seconds/1]).
+-export([parseSocketList/1, parseSocket/1, get_name/1, get_name/2, timeout_seconds/1, prepare_l2l1_messages_from_bytes/3]).
 
 %%---------------------------------------------------------
 %%  Prepare list of #socket_info from application settings
@@ -51,3 +51,25 @@ timeout_seconds(Seconds) ->
   after Seconds ->
     ok
   end.
+
+
+
+%% ------------------------------------------------------------------
+%% Подготовить сообщения из "пакета"
+%% ------------------------------------------------------------------
+prepare_l2l1_messages_from_bytes([], Res, _LogFileName) ->
+  Res;
+prepare_l2l1_messages_from_bytes([L1| [L2 | Bytes]], Res, LogFileName) ->
+  HeaderLen = L1*256 + L2,
+  DataLen = erlang:length(Bytes),
+  if
+    HeaderLen > DataLen ->
+      logger:info("Header len: ~w, Data len: ~w. Message ignored: ~p~n", [HeaderLen, DataLen, Bytes], LogFileName),
+      ignored;
+    true ->
+      Message = lists:sublist(Bytes, HeaderLen),
+      Tail = lists:sublist(Bytes, HeaderLen+1, DataLen - HeaderLen),
+      prepare_l2l1_messages_from_bytes(Tail, [{[L1| [L2 | Message]]} | Res], LogFileName)
+  end.
+
+
