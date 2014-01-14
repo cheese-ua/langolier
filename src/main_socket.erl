@@ -155,7 +155,14 @@ code_change(_OldVsn, State, _Extra) ->
 handle_message(Handler, Bytes) ->
 	case Handler of
 		undefined -> {undefined, handler_is_absent};
-		_ -> Handler(Bytes)
+		_ ->
+      try Handler(Bytes) of
+           Res -> Res
+      catch
+        ErrRes->
+          logger:info("Main handler error: ~w~n", [ErrRes], ?LOG_FILE),
+          ErrRes
+      end
 	end.
 
 delete_client(_SocketClient, NewList, []) ->

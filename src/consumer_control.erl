@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, delete_consumer/3, register/1, get_next_consumer/0, send_message/1, send_echo/0]).
+-export([start_link/0, delete_consumer/3, register/1, unregister/1, get_next_consumer/0, send_message/1, send_echo/0]).
 
 %% gen_server callbacks
 -export([init/1,  handle_call/3,  handle_cast/2,  handle_info/2,  terminate/2,  code_change/3]).
@@ -31,6 +31,11 @@
 -spec(register(#consumer_info{}) -> ok).
 register(Consumer) ->
   gen_server:cast(?SERVER, {register, Consumer}),
+  ok.
+
+-spec(unregister(#consumer_info{}) -> ok).
+unregister(Consumer) ->
+  gen_server:cast(?SERVER, {unregister, Consumer}),
   ok.
 
 -spec(get_next_consumer() -> #consumer_info{} | not_present).
@@ -81,6 +86,7 @@ handle_call(get_next_consumer, _From, State) ->
       NewState = State#state{
       consumers = Tail ++ [Head]
        },
+      logger:info("next consumer: ~w~n", [Head], ?LOG_FILE),
       {reply, {ok, Head}, NewState}
   end;
 %%--------------------------------------------------------------------
@@ -95,6 +101,11 @@ handle_cast({register, OneConsumer}, #state{consumers = Consumers} = State) ->
   logger:info("register consumer: ~w~n", [OneConsumer], ?LOG_FILE),
   NewConsumers = delete_consumer(OneConsumer, Consumers, []),
   {noreply, State#state{consumers = [OneConsumer | NewConsumers]}};
+%%--------------------------------------------------------------------
+handle_cast({unregister, OneConsumer}, #state{consumers = Consumers} = State) ->
+  logger:info("unregister consumer: ~w~n", [OneConsumer], ?LOG_FILE),
+  NewConsumers = delete_consumer(OneConsumer, Consumers, []),
+  {noreply, State#state{consumers = NewConsumers}};
 %%--------------------------------------------------------------------
 handle_cast(Request, State) ->
   logger:info("unknown handle_cast: ~w~n", [Request], ?LOG_FILE),

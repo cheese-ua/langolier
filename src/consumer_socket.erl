@@ -15,7 +15,7 @@
 }).
 
 %% API
--export([start_link/2, send_message/2, handle_message/2, get_file_name/1]).
+-export([start_link/2, send_message/2, handle_message/3, get_file_name/1]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -28,6 +28,7 @@ start_link(Socket, Handler) ->
   logger:register_file(LogFileName),
   logger:info("start_link: ~w~n", [?MODULE], LogFileName),
   logger:info("ConsumerSocket ~w: ~p~n", [Name, Socket], LogFileName),
+  consumer_control:unregister(#consumer_info{name = Name}),
 	gen_server:start_link({local, Name}, ?MODULE, [Socket, Handler], []).
 
 send_message(Bytes, ServerName) ->
@@ -37,10 +38,10 @@ send_message(Bytes, ServerName) ->
 %%%===================================================================
 -spec(init([#socket_info{}]) -> {ok,#state{}}).
 init([Socket, Handler]) ->
+  socket_utilites:timeout_seconds(?TIMEOUT),
   Name = Socket#socket_info.name,
   LogFileName = get_file_name(Name),
   logger:info("init: ~w, ~p~n", [?MODULE, Socket], LogFileName),
-  consumer_control:register(#consumer_info{name = Name, pid = self()}),
   gen_server:cast(Name, {init, Socket, Handler}),
   {ok, #state{}}.
 
@@ -68,6 +69,7 @@ handle_cast({init, SocketInfo, Handler}, State) ->
   logger:info("Try connect to ~p:~w~n", [Ip, Port], LogFileName),
   Socket = case gen_tcp:connect(Ip, Port,  [binary, {packet, 0}], ?TIMEOUT_CONNECT) of
     {ok, SocketConnected} ->
+      consumer_control:register(#consumer_info{name = Name, pid = self()}),
       SocketConnected;
      {error, Reason} ->
       logger:info("Connect failed: ~w~n", [Reason], LogFileName),
@@ -80,7 +82,7 @@ handle_cast({init, SocketInfo, Handler}, State) ->
      socket_info = SocketInfo,
      socket_instance = Socket,
      file_name = LogFileName,
-    server_name = Name
+     server_name = Name
   },
   {noreply, NewState};
 %%===================================================================
@@ -91,12 +93,12 @@ handle_cast(_Request, State) ->
 handle_info({tcp, RemoteSocket, Bytes}, #state{ handler = Handler} =  State) ->
   {ok,{Ip,Port}} = inet:peername(RemoteSocket),
   logger:info("Receive message from ~p:~w: ~w~n", [Ip,Port, Bytes], State#state.file_name),
-  handle_message(Handler, Bytes),
+  handle_message(Handler, Bytes, State),
   {noreply, State};
 %%%===================================================================
 handle_info({tcp_closed, RemoteSocket}, State) ->
   logger:info("Client disconnected: ~w~n", [RemoteSocket], State#state.file_name),
-  socket_utilites:timeout_seconds(?TIMEOUT),
+  consumer_control:unregister(#consumer_info{name = State#state.server_name, pid = self()}),
   error(disconnect),
   {noreply, State};
 %%%===================================================================
@@ -112,10 +114,16 @@ code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
 
-handle_message(Handler, Bytes) ->
+handle_message(Handler, Bytes, State) ->
   case Handler of
     undefined -> {undefined, handler_is_absent};
-    _ -> Handler(Bytes)
+    _ -> try Handler(Bytes) of
+           Res -> Res
+         catch
+           ErrRes ->
+             logger:info("Consumer handler error: ~w~n", [ErrRes], State#state.file_name),
+             ErrRes
+         end
   end.
 
 get_file_name(Name) ->

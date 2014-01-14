@@ -10,4 +10,15 @@
 -author("cheese").
 
 %% API
--export([]).
+-export([bytes_to_hex/1]).
+
+%% Interlan
+-export([bytes_to_hex_inner/2]).
+
+bytes_to_hex(Bytes) ->
+  bytes_to_hex_inner(Bytes, []).
+
+
+
+bytes_to_hex_inner(_Bytes, _Res) ->
+  0.

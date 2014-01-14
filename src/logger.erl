@@ -66,8 +66,8 @@ handle_cast({register, _Pid, FileName}, #state{ files = Files} = State) ->
 handle_cast({info, Pid, Message, FileName}, State) ->
   {{Year, Month, Day}, {Hour, Min, Second} } = calendar:local_time(),
   Date = lists:flatten(io_lib:format("~B-~2.10.0B-~2.10.0B ~2.10.0B:~2.10.0B:~2.10.0B ~w ", [Year, Month, Day, Hour, Min, Second, Pid])),
-  MessageDate = io_lib:fwrite("~s ~s",[Date , Message]),
-  io:format("~s~n",[MessageDate]),
+  MessageDate = io_lib:fwrite("~s ~s~n",[Date , Message]),
+  io:format("~s",[MessageDate]),
   file:write_file(FileName, MessageDate, [append]),
   {noreply, State};
 %%--------------------------------------------------------------------
