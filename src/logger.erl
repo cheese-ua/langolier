@@ -15,9 +15,11 @@
 -export([start_link/0, info/2, info/3, register_file/1]).
 
 %% gen_server callbacks
--export([init/1,  handle_call/3,  handle_cast/2,  handle_info/2,  terminate/2,  code_change/3, delete_file/3, move_file/1, check_file_size/1, zip/1]).
+-export([init/1,  handle_call/3,  handle_cast/2,  handle_info/2,  terminate/2,  code_change/3, delete_file/3, move_file/1, check_file_size/1, zip/1, check_size/1]).
 
 -define(SERVER, ?MODULE).
+-define(TIMEOUT_CHECK_SIZE, 30000).
+
 -define(LOG_FILE, "log/logger.log").
 
 
@@ -47,6 +49,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
 init([]) ->
+  erlang:send_after(?TIMEOUT_CHECK_SIZE, self(), check_size),
   {ok, #state{files = []}}.
 
 %%--------------------------------------------------------------------
@@ -85,11 +88,14 @@ handle_cast(_Request, State) ->
 
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
-handle_info(check_size, State) ->
+handle_info(check_size, #state{files = Files}= State) ->
+  info("check_size: ~p~n", [Files], ?LOG_FILE),
+  spawn(?MODULE, check_size, [Files]),
+  erlang:send_after(?TIMEOUT_CHECK_SIZE, self(), check_size),
   {noreply, State};
 %%--------------------------------------------------------------------
 handle_info(status, #state{files = Files}= State) ->
-  info("Files: ~p~n", [Files], ?LOG_FILE),
+  info("Files: ~p ~n", [Files], ?LOG_FILE),
   {noreply, State};
 %%--------------------------------------------------------------------
 handle_info(_Info, State) ->
@@ -117,6 +123,13 @@ delete_file(FileName, [HeadFile | TailFiles], Res) ->
     _OtherFileName ->
       delete_file(FileName, TailFiles, [HeadFile | Res])
   end.
+
+
+check_size([]) ->
+  ok;
+check_size([File | Other]) ->
+  check_file_size(File),
+  check_size(Other).
 
 
 check_file_size(FileName) ->

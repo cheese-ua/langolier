@@ -4,7 +4,7 @@
 -include("types.hrl").
 
 %% API
--export([parseSocketList/1, parseSocket/1, get_name/1, get_name/2, timeout_seconds/1, prepare_l2l1_messages_from_bytes/3]).
+-export([parseSocketList/1, parseSocket/1, get_name/1, get_name/2, timeout_seconds/1, prepare_l2l1_messages_from_bytes/3, our_list/1]).
 
 %%---------------------------------------------------------
 %%  Prepare list of #socket_info from application settings
@@ -70,6 +70,9 @@ prepare_l2l1_messages_from_bytes([L1| [L2 | Bytes]], Res, LogFileName) ->
       Message = lists:sublist(Bytes, HeaderLen),
       Tail = lists:sublist(Bytes, HeaderLen+1, DataLen - HeaderLen),
       prepare_l2l1_messages_from_bytes(Tail, [{[L1| [L2 | Message]]} | Res], LogFileName)
-  end.
+  end;
+prepare_l2l1_messages_from_bytes(Bytes, Res, LogFileName) ->
+  logger:info("Message ignored [invalid size]: ~p~n", [Bytes], LogFileName),
+  Res.
 
 
