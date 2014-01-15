@@ -72,7 +72,10 @@ receive_from_client(SocketClient) ->
       receive_from_client(SocketClient);
     {error, closed} ->
 			gen_server:cast(?SERVER, {closed_client, SocketClient}),
-      {error, closed}
+      {error, closed};
+    {error, Reason} ->
+      logger:info("Error: ~w~n",[{Reason}], ?LOG_FILE),
+      {error, Reason}
   end.
 
 %% ------------------------------------------------------------------

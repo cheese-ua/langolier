@@ -76,3 +76,7 @@ prepare_l2l1_messages_from_bytes(Bytes, Res, LogFileName) ->
   Res.
 
 
+our_list(Pos) ->
+  fun() ->
+    {Pos, our_list(Pos+1)}
+  end.
