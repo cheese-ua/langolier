@@ -123,11 +123,14 @@ get_file_name(Name) ->
 %% ------------------------------------------------------------------
 handle_message(Bytes, #state{ file_name = FileName} = State) ->
   Messages = socket_utilites:prepare_l2l1_messages_from_bytes(binary:bin_to_list(Bytes), [], FileName),
-  execute_handle_messages(Messages, State)	.
+  execute_handle_messages(Messages, State).
 
 %% ------------------------------------------------------------------
 %% Запустить на обработку все сообщения
 %% ------------------------------------------------------------------
+execute_handle_messages(ignored, State) ->
+  logger:info("message ignored", State#state.file_name),
+  ok;
 execute_handle_messages([], _State) ->
   ok;
 execute_handle_messages([{HeadMessage} | OtherMessage], #state{ server_name = _ServerName} = State) ->

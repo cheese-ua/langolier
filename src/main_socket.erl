@@ -159,6 +159,9 @@ handle_message(Handler, Bytes) ->
 %% ------------------------------------------------------------------
 %% Запустить на обработку все сообщения
 %% ------------------------------------------------------------------
+execute_handle_on_messages(_Handler, ignored) ->
+  logger:info("message ignored", ?LOG_FILE),
+  ok;
 execute_handle_on_messages(_Handler, []) ->
   ok;
 execute_handle_on_messages(Handler, [{HeadMessage} | OtherMessage]) ->
