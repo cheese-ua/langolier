@@ -14,3 +14,14 @@ main_socket:test().
 consumer_control:get_next_consumer().
 
 consumer_control:send_echo().
+
+
+application:load(langolier_app).
+application:start(langolier_app).
+
+
+
+[{type, client}, {ip, {10,55,9,80}}, {port, 12032}, {name, client_1}],
+[{type, client}, {ip, {10,55,9,80}}, {port, 12033}, {name, client_2}],
+[{type, client}, {ip, {10,55,9,80}}, {port, 12034}, {name, client_3}],
+[{type, client}, {ip, {10,55,9,80}}, {port, 12035}, {name, client_4}]

@@ -5,7 +5,7 @@
 -include("types.hrl").
 -behaviour(gen_server).
 -define(TIMEOUT_CONNECT, 5000).
--define(TIMEOUT, 5000).
+-define(TIMEOUT_START, 3000).
 -record(state, {
   handler ,
   socket_info :: #socket_info{},
@@ -15,7 +15,7 @@
 }).
 
 %% API
--export([start_link/2, send_message/2, handle_message/2, get_file_name/1, handle_one_message/2, execute_handle_one_messages/2]).
+-export([start_link/2, send_message/2, handle_message/2, get_file_name/1, handle_one_message/2, execute_handle_messages/2]).
 
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -38,7 +38,7 @@ send_message(Bytes, ServerName) ->
 %%%===================================================================
 -spec(init([#socket_info{}]) -> {ok,#state{}}).
 init([Socket, Handler]) ->
-  socket_utilites:timeout_seconds(?TIMEOUT),
+  socket_utilites:timeout_seconds(?TIMEOUT_START),
   Name = Socket#socket_info.name,
   LogFileName = get_file_name(Name),
   logger:info("init: ~w, ~p~n", [?MODULE, Socket], LogFileName),
@@ -47,13 +47,12 @@ init([Socket, Handler]) ->
 
 %%%===================================================================
 handle_call({send, Bytes}, _From, State) ->
-  logger:info("Send to ~w: ~w~n", [State#state.server_name, Bytes], State#state.file_name),
   Res = case gen_tcp:send(State#state.socket_instance, Bytes) of
     ok ->
-      logger:info("Send ok", State#state.file_name),
+      logger:info("Send [ok] to ~w: ~s~n", [State#state.server_name, bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
       ok;
     {error, Reason} ->
-      logger:info("Send error: ~w~n", [Reason], State#state.file_name),
+      logger:info("Send [error: ~w] to ~w: ~s~n", [Reason, State#state.server_name, bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
       {error, Reason}
   end,
   {reply, Res, State};
@@ -92,7 +91,7 @@ handle_cast(_Request, State) ->
 %%%===================================================================
 handle_info({tcp, RemoteSocket, Bytes}, State) ->
   {ok,{Ip,Port}} = inet:peername(RemoteSocket),
-  logger:info("Receive message from ~p:~w: ~w~n", [Ip,Port, Bytes], State#state.file_name),
+  logger:info("Receive message from ~w [~p:~w]: ~s~n", [State#state.server_name, Ip,Port, bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
   handle_message(Bytes, State),
   {noreply, State};
 %%%===================================================================
@@ -124,16 +123,16 @@ get_file_name(Name) ->
 %% ------------------------------------------------------------------
 handle_message(Bytes, #state{ file_name = FileName} = State) ->
   Messages = socket_utilites:prepare_l2l1_messages_from_bytes(binary:bin_to_list(Bytes), [], FileName),
-  execute_handle_one_messages(Messages, State)	.
+  execute_handle_messages(Messages, State)	.
 
 %% ------------------------------------------------------------------
 %% Запустить на обработку все сообщения
 %% ------------------------------------------------------------------
-execute_handle_one_messages([], _State) ->
+execute_handle_messages([], _State) ->
   ok;
-execute_handle_one_messages([{HeadMessage} | OtherMessage], #state{ server_name = _ServerName} = State) ->
+execute_handle_messages([{HeadMessage} | OtherMessage], #state{ server_name = _ServerName} = State) ->
   spawn(?MODULE, handle_one_message, [HeadMessage, State]),
-  execute_handle_one_messages(OtherMessage, State).
+  execute_handle_messages(OtherMessage, State).
 
 %% ------------------------------------------------------------------
 %% Запустить на обработку одно конкретное сообщение

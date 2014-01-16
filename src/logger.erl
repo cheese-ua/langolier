@@ -135,7 +135,7 @@ check_size([File | Other]) ->
 check_file_size(FileName) ->
   FileSize = filelib:file_size(FileName),
   if
-    FileSize > 1000000 ->
+    FileSize > 25000000 ->
       move_file(FileName);
     true ->
         ok
@@ -145,8 +145,15 @@ move_file(FileName) ->
   FileNameAbs = filename:absname(FileName),
   FileNameWithoutExt = filename:basename(FileName),
   FileDir = filename:absname(filename:dirname(FileName)),
-  NewFileDir =FileDir ++ "/" ++ "arch",
+  {{Year, Month, _}, _ } = calendar:local_time(),
+  DateDir = lists:flatten(io_lib:format("~B~2.10.0B", [Year, Month])),
+
+  ArchDir= FileDir ++ "/arch",
+  file:make_dir(ArchDir),
+
+  NewFileDir =ArchDir ++ "/"++ DateDir,
   file:make_dir(NewFileDir),
+
   NewFileName = NewFileDir ++ "/" ++ FileNameWithoutExt ++ ".arch",
   Res = file:rename(FileNameAbs, NewFileName),
   info("rename: ~p [~p] to [~p] ~n", [Res, FileNameAbs, NewFileName], ?LOG_FILE),

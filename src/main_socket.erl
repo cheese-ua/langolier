@@ -85,14 +85,12 @@ handle_call({send_to_last_accepted, Bytes}, _From, #state{ clients = Clients}= S
       logger:info("Clients is absent message ignored: ~p~n", [Bytes], ?LOG_FILE),
       {error, no_clients};
     [Head | _] ->
-      {ok,{Ip,Port}} = inet:peername(Head),
-      logger:info("Send to ~p:~w: ~w~n", [Ip, Port, Bytes], ?LOG_FILE),
       ResSend = case gen_tcp:send(Head, Bytes) of
               ok ->
-                logger:info("Send ok", ?LOG_FILE),
+                logger:info("Send [ok] to ~w: ~s~n", [Head, bytes_extension:bin_to_hexstr(Bytes)], ?LOG_FILE),
                 ok;
               {error, Reason} ->
-                logger:info("Send error: ~p~n", [Reason], ?LOG_FILE),
+                logger:info("Send [error: ~w] to ~w: ~s~n", [Reason, Head, bytes_extension:bin_to_hexstr(Bytes)], ?LOG_FILE),
                 {error, Reason}
             end,
       ResSend
@@ -124,8 +122,7 @@ handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
   logger:info("New Clients: ~w~n", [NewClients], ?LOG_FILE),
 	{noreply, State#state{clients = NewClients}};
 handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler} = State) ->
-  {ok,{Ip,Port}} = inet:peername(SocketClient),
-  logger:info("Receive message from ~p:~w: ~w~n", [Ip,Port, NewBytes], ?LOG_FILE),
+  logger:info("Receive message from ~w: ~s~n", [SocketClient, bytes_extension:bin_to_hexstr(NewBytes)], ?LOG_FILE),
 	spawn(?SERVER, handle_message, [Handler, NewBytes]),
   {noreply, State};
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->

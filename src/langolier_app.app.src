@@ -8,8 +8,8 @@
   {env, [
 		{main_socket, [{type, server}, {ip, {10,0,2,15}}, {port, 8008}, {name, main_server}]},
 		{clients_sockets, [
-			[{type, client}, {ip, "10.55.5.52"}, {port, 7777}, {name, client_1}],
-      [{type, client}, {ip, "10.55.5.52"}, {port, 7778}, {name, client_2}]
+			[{type, client}, {ip, {10,55,5,52}}, {port, 7777}, {name, client_1}],
+      [{type, client}, {ip, {10,55,5,52}}, {port, 7778}, {name, client_2}]
 			]}
 	]}
  ]}.
