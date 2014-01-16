@@ -49,10 +49,10 @@ init([Socket, Handler]) ->
 handle_call({send, Bytes}, _From, State) ->
   Res = case gen_tcp:send(State#state.socket_instance, Bytes) of
     ok ->
-      logger:info("Send [ok] to ~w: ~s~n", [State#state.server_name, bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
+      logger:info("Send [ok] to ~w ~w bytes: ~s~n", [State#state.server_name, erlang:byte_size(Bytes), bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
       ok;
     {error, Reason} ->
-      logger:info("Send [error: ~w] to ~w: ~s~n", [Reason, State#state.server_name, bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
+      logger:info("Send [error: ~w] to ~w ~w bytes: ~s~n", [Reason, State#state.server_name, erlang:byte_size(Bytes), bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
       {error, Reason}
   end,
   {reply, Res, State};
@@ -91,7 +91,7 @@ handle_cast(_Request, State) ->
 %%%===================================================================
 handle_info({tcp, RemoteSocket, Bytes}, State) ->
   {ok,{Ip,Port}} = inet:peername(RemoteSocket),
-  logger:info("Receive message from ~w [~p:~w]: ~s~n", [State#state.server_name, Ip,Port, bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
+  logger:info("Receive message from ~w [~p:~w] ~w bytes: ~s~n", [State#state.server_name, Ip,Port, erlang:byte_size(Bytes), bytes_extension:bin_to_hexstr(Bytes)], State#state.file_name),
   handle_message(Bytes, State),
   {noreply, State};
 %%%===================================================================

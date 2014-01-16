@@ -72,6 +72,7 @@ receive_from_client(SocketClient) ->
       receive_from_client(SocketClient);
     {error, closed} ->
 			gen_server:cast(?SERVER, {closed_client, SocketClient}),
+      logger:info("closed_client: ~w~n",[{SocketClient}], ?LOG_FILE),
       {error, closed};
     {error, Reason} ->
       logger:info("Error: ~w~n",[{Reason}], ?LOG_FILE),
@@ -87,10 +88,10 @@ handle_call({send_to_last_accepted, Bytes}, _From, #state{ clients = Clients}= S
     [Head | _] ->
       ResSend = case gen_tcp:send(Head, Bytes) of
               ok ->
-                logger:info("Send [ok] to ~w: ~s~n", [Head, bytes_extension:bin_to_hexstr(Bytes)], ?LOG_FILE),
+                logger:info("Send [ok] to ~w ~w bytes: ~s~n", [Head, erlang:byte_size(Bytes), bytes_extension:bin_to_hexstr(Bytes)], ?LOG_FILE),
                 ok;
               {error, Reason} ->
-                logger:info("Send [error: ~w] to ~w: ~s~n", [Reason, Head, bytes_extension:bin_to_hexstr(Bytes)], ?LOG_FILE),
+                logger:info("Send [error: ~w] to ~w ~w bytes: ~s~n", [Reason, Head, erlang:byte_size(Bytes), bytes_extension:bin_to_hexstr(Bytes)], ?LOG_FILE),
                 {error, Reason}
             end,
       ResSend
@@ -122,7 +123,7 @@ handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
   logger:info("New Clients: ~w~n", [NewClients], ?LOG_FILE),
 	{noreply, State#state{clients = NewClients}};
 handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler} = State) ->
-  logger:info("Receive message from ~w: ~s~n", [SocketClient, bytes_extension:bin_to_hexstr(NewBytes)], ?LOG_FILE),
+  logger:info("Receive message from ~w ~w bytes: ~s~n", [SocketClient, erlang:byte_size(NewBytes), bytes_extension:bin_to_hexstr(NewBytes)], ?LOG_FILE),
 	spawn(?SERVER, handle_message, [Handler, NewBytes]),
   {noreply, State};
 handle_cast({accept_socket_client, SocketClient}, #state{clients=Clients} = State) ->
