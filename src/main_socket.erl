@@ -18,7 +18,7 @@
 %% ------------------------------------------------------------------
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3, receive_from_client/1, accept/1, handle_message/2, handle_one_message/2,
-          delete_client/3, execute_handle_on_messages/2]).
+          execute_handle_on_messages/2]).
 
 
 %% ------------------------------------------------------------------
@@ -119,7 +119,7 @@ handle_cast({init, SocketInfo, Handler}, _State) ->
   end;
 handle_cast({closed_client, SocketClient}, #state{clients = Clients} = State) ->
 	logger:info("Client disconnected: ~w~n", [SocketClient], ?LOG_FILE),
-  NewClients = delete_client(SocketClient, [], Clients),
+  NewClients = [S || S <- Clients, S /= SocketClient],
   logger:info("New Clients: ~w~n", [NewClients], ?LOG_FILE),
 	{noreply, State#state{clients = NewClients}};
 handle_cast({receive_from_client, SocketClient, NewBytes}, #state{message_handler = Handler} = State) ->
@@ -186,11 +186,5 @@ handle_one_message(Handler, Bytes) ->
   end.
 
 
-delete_client(_SocketClient, NewList, []) ->
-  NewList;
-delete_client(SocketClient, NewList, [SocketClient | Tail]) ->
-  delete_client(SocketClient, NewList, Tail);
-delete_client(SocketClient, NewList, [Head | Tail]) ->
-  delete_client(SocketClient, [Head | NewList], Tail).
 
 

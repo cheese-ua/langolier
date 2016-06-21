@@ -64,15 +64,15 @@ prepare_l2l1_messages_from_bytes([L1| [L2 | Bytes]], Res, LogFileName) ->
   DataLen = erlang:length(Bytes),
   if
     HeaderLen > DataLen ->
-      logger:info("Header len: ~w, Data len: ~w. Message ignored: ~p~n", [HeaderLen, DataLen, Bytes], LogFileName),
-      ignored;
+      logger:info("Header len: ~w, Data len: ~w. Message ignored: ~w~n", [HeaderLen, DataLen, Bytes], LogFileName),
+      Res;
     true ->
       Message = lists:sublist(Bytes, HeaderLen),
       Tail = lists:sublist(Bytes, HeaderLen+1, DataLen - HeaderLen),
       prepare_l2l1_messages_from_bytes(Tail, [{erlang:list_to_binary([L1 | [L2 | Message]])} | Res], LogFileName)
   end;
 prepare_l2l1_messages_from_bytes(Bytes, Res, LogFileName) ->
-  logger:info("Message ignored [invalid size]: ~p~n", [Bytes], LogFileName),
+  logger:info("Message ignored [invalid size]: ~w~n", [Bytes], LogFileName),
   Res.
 
 

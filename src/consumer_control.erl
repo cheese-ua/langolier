@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, delete_consumer/3, register/1, unregister/1, get_next_consumer/0, send_message/1, send_echo/0]).
+-export([start_link/0, register/1, unregister/1, get_next_consumer/0, send_message/1, send_echo/0]).
 
 %% gen_server callbacks
 -export([init/1,  handle_call/3,  handle_cast/2,  handle_info/2,  terminate/2,  code_change/3]).
@@ -102,12 +102,12 @@ handle_call(Request, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({register, OneConsumer}, #state{consumers = Consumers} = State) ->
   logger:info("register consumer: ~w~n", [OneConsumer], ?LOG_FILE),
-  NewConsumers = delete_consumer(OneConsumer, Consumers, []),
+  NewConsumers = [C || C <- Consumers, C#consumer_info.name /= OneConsumer#consumer_info.name],
   {noreply, State#state{consumers = [OneConsumer | NewConsumers]}};
 %%--------------------------------------------------------------------
 handle_cast({unregister, OneConsumer}, #state{consumers = Consumers} = State) ->
   logger:info("unregister consumer: ~w~n", [OneConsumer], ?LOG_FILE),
-  NewConsumers = delete_consumer(OneConsumer, Consumers, []),
+  NewConsumers = [C || C <- Consumers, C#consumer_info.name /= OneConsumer#consumer_info.name],
   {noreply, State#state{consumers = NewConsumers}};
 %%--------------------------------------------------------------------
 handle_cast(Request, State) ->
@@ -132,25 +132,4 @@ terminate(_Reason, _State) ->
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-
-%%--------------------------------------------------------------------
-%%
-%%--------------------------------------------------------------------
--spec(delete_consumer(#consumer_info{}, [#consumer_info{}], [#consumer_info{}]) -> [#consumer_info{}]).
-delete_consumer(_OneConsumer, [], Res) ->
-  lists:reverse(Res);
-delete_consumer(OneConsumer, [Head | Tail], Res) ->
-  HeadName = Head#consumer_info.name,
-  ConsName = OneConsumer#consumer_info.name,
-  case HeadName of
-    ConsName ->
-      delete_consumer(OneConsumer, Tail, Res);
-    _ ->
-      delete_consumer(OneConsumer, Tail, [Head | Res])
-  end.
-
 

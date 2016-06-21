@@ -13,6 +13,11 @@ start_link(MainSocket, ClientsSockets) ->
 init([MainSocket, ClientsSockets]) ->
 		logger:info("Start supervisor: ~w~n", [?MODULE], ?LOG_FILE),
 
+    ExternalReceiverWorker = {external_receiver,
+      {external_receiver, start_link, []},
+      permanent, 2000, worker,
+      []},
+
     LogWorker = {logger_sup,
     {logger, start_link, []},
     permanent, 2000, worker,
@@ -32,6 +37,6 @@ init([MainSocket, ClientsSockets]) ->
 
     {ok, {
       {one_for_one, 2, 5},
-      [LogWorker, MainSocketWorker, ConsumerSocketWorker]
+      [LogWorker, MainSocketWorker, ConsumerSocketWorker, ExternalReceiverWorker]
          }
     }.
